@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MisEstrellas - Mapa</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <button class="back-btn" onclick="window.history.back()">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <h1 data-translate="business_map">Mapa de Negocios</h1>
+                <div class="language-toggle">
+                    <button class="lang-btn" onclick="changeLanguage('es')" id="lang-es">ES</button>
+                    <button class="lang-btn" onclick="changeLanguage('en')" id="lang-en">EN</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Search Bar -->
+        <div class="search-section">
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-input" placeholder="Buscar negocios..." data-translate-placeholder="search_businesses">
+                <button class="location-btn" onclick="getCurrentLocation()">
+                    <i class="fas fa-location-arrow"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div class="map-container">
+            <div id="map" class="map"></div>
+            
+            <!-- Loading Overlay -->
+            <div class="map-loading" id="map-loading">
+                <div class="spinner"></div>
+                <p data-translate="loading_map">Cargando mapa...</p>
+            </div>
+        </div>
+
+        <!-- Business Info Card -->
+        <div class="business-info-card" id="business-info-card" style="display: none;">
+            <div class="card-header">
+                <div class="business-image">
+                    <img id="card-business-image" src="" alt="Business">
+                </div>
+                <div class="business-details">
+                    <h3 id="card-business-name"></h3>
+                    <p id="card-business-address"></p>
+                    <div class="business-rating">
+                        <i class="fas fa-star"></i>
+                        <span id="card-business-rating">4.5</span>
+                        <span class="rating-count">(<span id="card-rating-count">120</span>)</span>
+                    </div>
+                </div>
+                <button class="close-card-btn" onclick="closeBusinessCard()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="business-actions">
+                    <button class="action-btn" onclick="goToBusiness()">
+                        <i class="fas fa-directions"></i>
+                        <span data-translate="directions">Ir al negocio</span>
+                    </button>
+                    <button class="action-btn" onclick="callBusiness()">
+                        <i class="fas fa-phone"></i>
+                        <span data-translate="call">Llamar</span>
+                    </button>
+                    <button class="action-btn" onclick="viewBusinessInfo()">
+                        <i class="fas fa-info-circle"></i>
+                        <span data-translate="info">Información</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="dashboard.html" class="nav-item">
+                <i class="fas fa-home"></i>
+                <span data-translate="dashboard">Dashboard</span>
+            </a>
+            <a href="escanear-qr.html" class="nav-item">
+                <i class="fas fa-qrcode"></i>
+                <span data-translate="scan_qr">Escanear QR</span>
+            </a>
+            <a href="mapa.html" class="nav-item active">
+                <i class="fas fa-map"></i>
+                <span data-translate="map">Mapa</span>
+            </a>
+            <a href="perfil.html" class="nav-item">
+                <i class="fas fa-user"></i>
+                <span data-translate="profile">Perfil</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/translations.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+    
+    <script>
+        let map;
+        let markers = [];
+        let currentUser = null;
+        let businesses = [];
+        let userLocation = null;
+        let selectedBusiness = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthentication();
+            updateTexts();
+            initializeMap();
+            setupSearchFunctionality();
+        });
+
+        function checkAuthentication() {
+            // [ESPACIO FIREBASE AUTH] - Check if user is logged in
+            currentUser = getCurrentUser();
+            if (!currentUser) {
+                window.location.href = '../index.html';
+                return;
+            }
+        }
+
+        function initializeMap() {
+            // Show loading
+            document.getElementById('map-loading').style.display = 'flex';
+            
+            // [ESPACIO MAPS] - Initialize Google Maps
+            // For now, we'll create a placeholder map
+            createPlaceholderMap();
+            
+            // Load businesses
+            loadBusinesses();
+        }
+
+        function createPlaceholderMap() {
+            // Placeholder map implementation
+            const mapElement = document.getElementById('map');
+            mapElement.innerHTML = `
+                <div class="map-placeholder">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <p data-translate="map_placeholder">Mapa se cargará aquí con Google Maps API</p>
+                    <p class="map-note" data-translate="map_note">Integrar con Google Maps JavaScript API</p>
+                </div>
+            `;
+            
+            // Hide loading after a delay
+            setTimeout(() => {
+                document.getElementById('map-loading').style.display = 'none';
+            }, 1000);
+        }
+
+        async function initGoogleMap() {
+            // [ESPACIO MAPS + FIREBASE] - Initialize Google Maps
+            try {
+                // Initialize map centered on user location or default location
+                const defaultLocation = { lat: 4.7110, lng: -74.0721 }; // Bogotá, Colombia
+                
+                map = new google.maps.Map(document.getElementById('map'), {
+                    center: defaultLocation,
+                    zoom: 13,
+                    styles: [
+                        // Dark theme map styles
+                        {
+                            elementType: 'geometry',
+                            stylers: [{ color: '#1A1A1A' }]
+                        },
+                        {
+                            elementType: 'labels.text.fill',
+                            stylers: [{ color: '#FFFFFF' }]
+                        },
+                        {
+                            elementType: 'labels.text.stroke',
+                            stylers: [{ color: '#1A1A1A' }]
+                        }
+                    ]
+                });
+                
+                // Get user location
+                await getCurrentLocation();
+                
+                // Load and display businesses
+                await loadBusinesses();
+                
+                document.getElementById('map-loading').style.display = 'none';
+                
+            } catch (error) {
+                console.error('Error initializing map:', error);
+                document.getElementById('map-loading').style.display = 'none';
+                showError(t('map_error'));
+            }
+        }
+
+        async function getCurrentLocation() {
+            try {
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 300000
+                    });
+                });
+                
+                userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                
+                if (map) {
+                    // Center map on user location
+                    map.setCenter(userLocation);
+                    
+                    // Add user location marker
+                    new google.maps.Marker({
+                        position: userLocation,
+                        map: map,
+                        icon: {
+                            url: '../images/user-location.svg',
+                            scaledSize: new google.maps.Size(30, 30)
+                        },
+                        title: t('your_location')
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error getting location:', error);
+                showError(t('location_error'));
+            }
+        }
+
+        async function loadBusinesses() {
+            try {
+                // [ESPACIO FIREBASE] - Load businesses from Firestore
+                businesses = await cargarNegocios();
+                
+                // Display businesses on map
+                displayBusinessMarkers();
+                
+            } catch (error) {
+                console.error('Error loading businesses:', error);
+                showError(t('businesses_error'));
+            }
+        }
+
+        function displayBusinessMarkers() {
+            // Clear existing markers
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+            
+            businesses.forEach(business => {
+                const marker = new google.maps.Marker({
+                    position: { lat: business.lat, lng: business.lng },
+                    map: map,
+                    icon: {
+                        url: '../images/business-marker.svg',
+                        scaledSize: new google.maps.Size(40, 40)
+                    },
+                    title: business.name
+                });
+                
+                marker.addListener('click', () => {
+                    showBusinessCard(business);
+                });
+                
+                markers.push(marker);
+            });
+        }
+
+        function showBusinessCard(business) {
+            selectedBusiness = business;
+            const card = document.getElementById('business-info-card');
+            
+            // Populate card with business data
+            document.getElementById('card-business-name').textContent = business.name;
+            document.getElementById('card-business-address').textContent = business.address;
+            document.getElementById('card-business-image').src = business.image || '../images/default-business.svg';
+            document.getElementById('card-business-rating').textContent = business.rating || '4.5';
+            document.getElementById('card-rating-count').textContent = business.ratingCount || '120';
+            
+            card.style.display = 'block';
+            
+            // Animate card in
+            setTimeout(() => {
+                card.classList.add('show');
+            }, 10);
+        }
+
+        function closeBusinessCard() {
+            const card = document.getElementById('business-info-card');
+            card.classList.remove('show');
+            
+            setTimeout(() => {
+                card.style.display = 'none';
+            }, 300);
+        }
+
+        function goToBusiness() {
+            if (selectedBusiness && selectedBusiness.mapsUrl) {
+                window.open(selectedBusiness.mapsUrl, '_blank');
+            } else if (selectedBusiness) {
+                const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedBusiness.lat},${selectedBusiness.lng}`;
+                window.open(url, '_blank');
+            }
+        }
+
+        function callBusiness() {
+            if (selectedBusiness && selectedBusiness.phone) {
+                window.location.href = `tel:${selectedBusiness.phone}`;
+            }
+        }
+
+        function viewBusinessInfo() {
+            // Could open a detailed business modal or navigate to business page
+            alert(t('feature_coming_soon'));
+        }
+
+        function setupSearchFunctionality() {
+            const searchInput = document.getElementById('search-input');
+            let searchTimeout;
+            
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    searchBusinesses(this.value);
+                }, 300);
+            });
+        }
+
+        function searchBusinesses(query) {
+            if (!query.trim()) {
+                displayBusinessMarkers();
+                return;
+            }
+            
+            const filteredBusinesses = businesses.filter(business => 
+                business.name.toLowerCase().includes(query.toLowerCase()) ||
+                business.address.toLowerCase().includes(query.toLowerCase())
+            );
+            
+            // Update map markers
+            displayFilteredMarkers(filteredBusinesses);
+        }
+
+        function displayFilteredMarkers(filteredBusinesses) {
+            // Clear existing markers
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+            
+            filteredBusinesses.forEach(business => {
+                const marker = new google.maps.Marker({
+                    position: { lat: business.lat, lng: business.lng },
+                    map: map,
+                    icon: {
+                        url: '../images/business-marker.svg',
+                        scaledSize: new google.maps.Size(40, 40)
+                    },
+                    title: business.name
+                });
+                
+                marker.addListener('click', () => {
+                    showBusinessCard(business);
+                });
+                
+                markers.push(marker);
+            });
+        }
+
+        function showError(message) {
+            alert(message);
+        }
+
+        function getCurrentUser() {
+            // [ESPACIO FIREBASE AUTH] - Get current authenticated user
+            return null;
+        }
+
+        // [ESPACIO FIREBASE] - Firebase functions to implement
+        async function cargarNegocios() {
+            // Query businesses from Firestore
+            console.log('Loading businesses from Firebase');
+            
+            // Temporary mock data - replace with Firebase query
+            return [
+                {
+                    id: '1',
+                    name: 'Restaurante La Estrella',
+                    address: 'Calle 85 #15-20, Bogotá',
+                    lat: 4.7110,
+                    lng: -74.0721,
+                    image: null,
+                    rating: 4.5,
+                    ratingCount: 120,
+                    phone: '+571234567890',
+                    mapsUrl: 'https://maps.google.com/?q=4.7110,-74.0721'
+                }
+            ];
+        }
+
+        // Load Google Maps API
+        function loadGoogleMaps() {
+            // [ESPACIO MAPS] - Load Google Maps JavaScript API
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initGoogleMap`;
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+
+        // Uncomment to load Google Maps
+        // loadGoogleMaps();
+    </script>
+</body>
+</html>

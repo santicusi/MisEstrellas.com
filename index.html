@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MisEstrellas.com - Login</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Language Toggle -->
+        <div class="language-toggle">
+            <button class="lang-btn" onclick="changeLanguage('es')" id="lang-es">ES</button>
+            <button class="lang-btn" onclick="changeLanguage('en')" id="lang-en">EN</button>
+        </div>
+
+        <!-- Main Login Container -->
+        <div class="login-container">
+            <!-- Logo -->
+            <div class="logo-container">
+                <img src="images/logo.svg" alt="MisEstrellas Logo" class="logo">
+                <h1 class="brand-name" data-translate="brand_name">MisEstrellas</h1>
+            </div>
+
+            <!-- User Type Selector -->
+            <div class="user-type-selector">
+                <button class="type-btn active" id="client-btn" onclick="selectUserType('client')" data-translate="client">Cliente</button>
+                <button class="type-btn" id="admin-btn" onclick="selectUserType('admin')" data-translate="admin">Administrador</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="login-form">
+                <!-- Client Login -->
+                <div id="client-login" class="login-section active">
+                    <div class="input-group">
+                        <label data-translate="phone_or_email">Teléfono o Email</label>
+                        <input type="tel" id="client-phone" placeholder="+57 300 123 4567" class="input-field">
+                        <input type="email" id="client-email" placeholder="email@ejemplo.com" class="input-field" style="display: none;">
+                        <button type="button" class="toggle-input" onclick="toggleClientInput()" data-translate="use_email">Usar Email</button>
+                    </div>
+                </div>
+
+                <!-- Admin Login -->
+                <div id="admin-login" class="login-section">
+                    <div class="input-group">
+                        <label data-translate="email">Email</label>
+                        <input type="email" id="admin-email" placeholder="admin@negocio.com" class="input-field">
+                    </div>
+                    <div class="input-group">
+                        <label data-translate="password">Contraseña</label>
+                        <input type="password" id="admin-password" placeholder="••••••••" class="input-field">
+                    </div>
+                </div>
+
+                <!-- Verification Code (for clients) -->
+                <div id="verification-section" class="login-section" style="display: none;">
+                    <div class="input-group">
+                        <label data-translate="verification_code">Código de verificación</label>
+                        <input type="text" id="verification-code" placeholder="123456" class="input-field">
+                        <p class="verification-info" data-translate="verification_sent">Código enviado a tu teléfono/email</p>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary" id="login-btn" data-translate="continue">Continuar</button>
+            </form>
+
+            <!-- Loading Spinner -->
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p data-translate="loading">Cargando...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/intlTelInput.min.js"></script>
+    <script src="js/translations.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/auth.js"></script>
+    
+    <script>
+        // Initialize phone input
+        let phoneInput;
+        let currentUserType = 'client';
+        let isUsingEmail = false;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializePhoneInput();
+            updateTexts();
+            setupEventListeners();
+        });
+
+        function initializePhoneInput() {
+            const phoneField = document.getElementById('client-phone');
+            phoneInput = window.intlTelInput(phoneField, {
+                initialCountry: 'co',
+                preferredCountries: ['co', 'us', 'mx'],
+                utilsScript: 'https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js'
+            });
+        }
+
+        function selectUserType(type) {
+            currentUserType = type;
+            
+            // Update button states
+            document.getElementById('client-btn').classList.toggle('active', type === 'client');
+            document.getElementById('admin-btn').classList.toggle('active', type === 'admin');
+            
+            // Show/hide login sections
+            document.getElementById('client-login').classList.toggle('active', type === 'client');
+            document.getElementById('admin-login').classList.toggle('active', type === 'admin');
+            
+            // Hide verification section
+            document.getElementById('verification-section').style.display = 'none';
+            
+            // Update button text
+            const loginBtn = document.getElementById('login-btn');
+            loginBtn.textContent = type === 'client' ? t('continue') : t('login');
+        }
+
+        function toggleClientInput() {
+            isUsingEmail = !isUsingEmail;
+            const phoneField = document.getElementById('client-phone');
+            const emailField = document.getElementById('client-email');
+            const toggleBtn = document.querySelector('.toggle-input');
+            
+            if (isUsingEmail) {
+                phoneField.style.display = 'none';
+                emailField.style.display = 'block';
+                toggleBtn.textContent = t('use_phone');
+            } else {
+                phoneField.style.display = 'block';
+                emailField.style.display = 'none';
+                toggleBtn.textContent = t('use_email');
+            }
+        }
+
+        function setupEventListeners() {
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+            
+            try {
+                if (currentUserType === 'client') {
+                    await handleClientLogin();
+                } else {
+                    await handleAdminLogin();
+                }
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        async function handleClientLogin() {
+            const verificationSection = document.getElementById('verification-section');
+            
+            if (verificationSection.style.display === 'none') {
+                // First step: send verification code
+                const contact = isUsingEmail ? 
+                    document.getElementById('client-email').value :
+                    phoneInput.getNumber();
+                
+                if (!contact) {
+                    throw new Error(t('enter_contact'));
+                }
+                
+                // [ESPACIO FIREBASE AUTH] - Send verification code
+                await loginCliente(contact);
+                
+                // Show verification section
+                verificationSection.style.display = 'block';
+                document.getElementById('login-btn').textContent = t('verify');
+                
+            } else {
+                // Second step: verify code
+                const code = document.getElementById('verification-code').value;
+                
+                if (!code) {
+                    throw new Error(t('enter_code'));
+                }
+                
+                // [ESPACIO FIREBASE AUTH] - Verify code
+                await verificarCodigo(code);
+                
+                // Redirect to client dashboard
+                window.location.href = 'cliente/dashboard.html';
+            }
+        }
+
+        async function handleAdminLogin() {
+            const email = document.getElementById('admin-email').value;
+            const password = document.getElementById('admin-password').value;
+            
+            if (!email || !password) {
+                throw new Error(t('enter_credentials'));
+            }
+            
+            // [ESPACIO FIREBASE AUTH] - Admin login
+            await loginAdmin(email, password);
+            
+            // Redirect to admin dashboard
+            window.location.href = 'admin/dashboard.html';
+        }
+
+        function showError(message) {
+            // Simple error display - could be enhanced with better UI
+            alert(message);
+        }
+    </script>
+</body>
+</html>

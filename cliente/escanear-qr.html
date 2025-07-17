@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MisEstrellas - Escanear QR</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <button class="back-btn" onclick="window.history.back()">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <h1 data-translate="scan_qr">Escanear QR</h1>
+                <div class="language-toggle">
+                    <button class="lang-btn" onclick="changeLanguage('es')" id="lang-es">ES</button>
+                    <button class="lang-btn" onclick="changeLanguage('en')" id="lang-en">EN</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Camera Section -->
+            <div class="camera-section">
+                <div class="camera-container" id="camera-container">
+                    <video id="camera-video" autoplay playsinline></video>
+                    <div class="scan-overlay">
+                        <div class="scan-frame">
+                            <div class="scan-corners">
+                                <div class="corner top-left"></div>
+                                <div class="corner top-right"></div>
+                                <div class="corner bottom-left"></div>
+                                <div class="corner bottom-right"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <canvas id="scan-canvas" style="display: none;"></canvas>
+                </div>
+
+                <!-- Camera Controls -->
+                <div class="camera-controls">
+                    <button class="control-btn" id="flip-camera-btn" onclick="flipCamera()">
+                        <i class="fas fa-sync-alt"></i>
+                        <span data-translate="flip_camera">Cambiar Cámara</span>
+                    </button>
+                    <button class="control-btn" id="toggle-flash-btn" onclick="toggleFlash()" style="display: none;">
+                        <i class="fas fa-flashlight"></i>
+                        <span data-translate="flash">Flash</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status Section -->
+            <div class="status-section">
+                <div class="status-indicator" id="status-indicator">
+                    <div class="status-icon">
+                        <i class="fas fa-qrcode"></i>
+                    </div>
+                    <p class="status-text" id="status-text" data-translate="scanning">Buscando código QR...</p>
+                </div>
+            </div>
+
+            <!-- Instructions -->
+            <div class="instructions">
+                <h3 data-translate="instructions">Instrucciones</h3>
+                <ul>
+                    <li data-translate="instruction_1">Apunta la cámara hacia el código QR</li>
+                    <li data-translate="instruction_2">Asegúrate de que el código esté dentro del marco</li>
+                    <li data-translate="instruction_3">Mantén la cámara estable hasta que se detecte</li>
+                </ul>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="dashboard.html" class="nav-item">
+                <i class="fas fa-home"></i>
+                <span data-translate="dashboard">Dashboard</span>
+            </a>
+            <a href="escanear-qr.html" class="nav-item active">
+                <i class="fas fa-qrcode"></i>
+                <span data-translate="scan_qr">Escanear QR</span>
+            </a>
+            <a href="mapa.html" class="nav-item">
+                <i class="fas fa-map"></i>
+                <span data-translate="map">Mapa</span>
+            </a>
+            <a href="perfil.html" class="nav-item">
+                <i class="fas fa-user"></i>
+                <span data-translate="profile">Perfil</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal" id="success-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 data-translate="success">¡Éxito!</h2>
+            </div>
+            <div class="modal-body">
+                <div class="success-animation">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="success-info">
+                    <p class="business-name" id="success-business-name"></p>
+                    <p class="stars-earned">
+                        <i class="fas fa-star"></i>
+                        <span id="success-stars">0</span>
+                        <span data-translate="stars_earned">estrellas ganadas</span>
+                    </p>
+                </div>
+                <button class="btn-primary" onclick="closeSuccessModal()" data-translate="continue">Continuar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div class="modal" id="error-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 data-translate="error">Error</h2>
+            </div>
+            <div class="modal-body">
+                <div class="error-animation">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <p id="error-message" class="error-text"></p>
+                <button class="btn-primary" onclick="closeErrorModal()" data-translate="try_again">Intentar de nuevo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+    <script src="../js/translations.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+    
+    <script>
+        let videoElement;
+        let canvasElement;
+        let canvasContext;
+        let currentStream = null;
+        let currentFacingMode = 'environment';
+        let isScanning = false;
+        let animationId;
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthentication();
+            updateTexts();
+            initializeScanner();
+        });
+
+        function checkAuthentication() {
+            // [ESPACIO FIREBASE AUTH] - Check if user is logged in
+            currentUser = getCurrentUser();
+            if (!currentUser) {
+                window.location.href = '../index.html';
+                return;
+            }
+        }
+
+        async function initializeScanner() {
+            videoElement = document.getElementById('camera-video');
+            canvasElement = document.getElementById('scan-canvas');
+            canvasContext = canvasElement.getContext('2d');
+
+            try {
+                await startCamera();
+                startScanning();
+            } catch (error) {
+                console.error('Error initializing scanner:', error);
+                showError(t('camera_error'));
+            }
+        }
+
+        async function startCamera() {
+            try {
+                // Stop current stream if exists
+                if (currentStream) {
+                    currentStream.getTracks().forEach(track => track.stop());
+                }
+
+                const constraints = {
+                    video: {
+                        facingMode: currentFacingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElement.srcObject = currentStream;
+                
+                videoElement.addEventListener('loadedmetadata', () => {
+                    canvasElement.width = videoElement.videoWidth;
+                    canvasElement.height = videoElement.videoHeight;
+                });
+
+                updateStatus('scanning', 'fas fa-qrcode');
+                
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                throw new Error(t('camera_permission_error'));
+            }
+        }
+
+        function startScanning() {
+            if (!isScanning) {
+                isScanning = true;
+                requestAnimationFrame(scanFrame);
+            }
+        }
+
+        function stopScanning() {
+            isScanning = false;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        function scanFrame() {
+            if (!isScanning) return;
+
+            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+                
+                const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) {
+                    stopScanning();
+                    procesarQR(code.data);
+                    return;
+                }
+            }
+
+            animationId = requestAnimationFrame(scanFrame);
+        }
+
+        async function procesarQR(qrData) {
+            updateStatus('processing', 'fas fa-spinner fa-spin');
+            
+            try {
+                // [ESPACIO FIREBASE + CAMERA] - Process QR code
+                const result = await processQRCode(qrData, currentUser.uid);
+                
+                if (result.success) {
+                    showSuccessModal(result.business, result.stars);
+                } else {
+                    showError(result.message || t('invalid_qr'));
+                }
+                
+            } catch (error) {
+                console.error('Error processing QR:', error);
+                showError(error.message || t('processing_error'));
+            }
+        }
+
+        async function processQRCode(qrData, userId) {
+            // [ESPACIO FIREBASE] - Validate QR and add points
+            console.log('Processing QR code:', qrData, 'for user:', userId);
+            
+            // Validate QR format and business
+            // Add points to user account
+            // Return success/failure result
+            
+            // Temporary mock implementation
+            return {
+                success: false,
+                message: t('firebase_not_configured')
+            };
+        }
+
+        function updateStatus(status, iconClass) {
+            const statusIcon = document.querySelector('.status-icon i');
+            const statusText = document.getElementById('status-text');
+            
+            statusIcon.className = iconClass;
+            
+            switch (status) {
+                case 'scanning':
+                    statusText.textContent = t('scanning');
+                    statusText.className = 'status-text';
+                    break;
+                case 'processing':
+                    statusText.textContent = t('processing');
+                    statusText.className = 'status-text processing';
+                    break;
+                case 'success':
+                    statusText.textContent = t('qr_detected');
+                    statusText.className = 'status-text success';
+                    break;
+                case 'error':
+                    statusText.textContent = t('error_occurred');
+                    statusText.className = 'status-text error';
+                    break;
+            }
+        }
+
+        async function flipCamera() {
+            currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+            
+            try {
+                await startCamera();
+                startScanning();
+            } catch (error) {
+                console.error('Error flipping camera:', error);
+                showError(t('camera_flip_error'));
+            }
+        }
+
+        function toggleFlash() {
+            // Flash toggle functionality (if supported)
+            if (currentStream) {
+                const track = currentStream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities();
+                
+                if (capabilities.torch) {
+                    track.applyConstraints({
+                        advanced: [{ torch: !track.getSettings().torch }]
+                    });
+                }
+            }
+        }
+
+        function showSuccessModal(business, stars) {
+            document.getElementById('success-business-name').textContent = business.name;
+            document.getElementById('success-stars').textContent = stars;
+            document.getElementById('success-modal').style.display = 'block';
+            
+            updateStatus('success', 'fas fa-check-circle');
+        }
+
+        function showError(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error-modal').style.display = 'block';
+            
+            updateStatus('error', 'fas fa-exclamation-triangle');
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('success-modal').style.display = 'none';
+            startScanning();
+        }
+
+        function closeErrorModal() {
+            document.getElementById('error-modal').style.display = 'none';
+            startScanning();
+        }
+
+        function getCurrentUser() {
+            // [ESPACIO FIREBASE AUTH] - Get current authenticated user
+            return null;
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            stopScanning();
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>

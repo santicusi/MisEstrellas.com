@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MisEstrellas - Dashboard</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <img src="../images/logo.svg" alt="MisEstrellas" class="header-logo">
+                <div class="user-info">
+                    <span class="user-name" id="user-name" data-translate="welcome">Bienvenido</span>
+                    <div class="language-toggle">
+                        <button class="lang-btn" onclick="changeLanguage('es')" id="lang-es">ES</button>
+                        <button class="lang-btn" onclick="changeLanguage('en')" id="lang-en">EN</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="dashboard-header">
+                <h1 data-translate="my_stars">Mis Estrellas</h1>
+                <div class="total-stars">
+                    <i class="fas fa-star"></i>
+                    <span id="total-stars">0</span>
+                </div>
+            </div>
+
+            <!-- Business Cards -->
+            <div class="business-cards" id="business-cards">
+                <!-- Cards will be populated by JavaScript -->
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="empty-state" style="display: none;">
+                <i class="fas fa-star-o"></i>
+                <h3 data-translate="no_stars">No tienes estrellas</h3>
+                <p data-translate="start_collecting">Comienza a coleccionar estrellas visitando nuestros negocios asociados</p>
+                <button class="btn-primary" onclick="goToMap()" data-translate="find_businesses">Encontrar Negocios</button>
+            </div>
+
+            <!-- Loading -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p data-translate="loading">Cargando...</p>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="dashboard.html" class="nav-item active">
+                <i class="fas fa-home"></i>
+                <span data-translate="dashboard">Dashboard</span>
+            </a>
+            <a href="escanear-qr.html" class="nav-item">
+                <i class="fas fa-qrcode"></i>
+                <span data-translate="scan_qr">Escanear QR</span>
+            </a>
+            <a href="mapa.html" class="nav-item">
+                <i class="fas fa-map"></i>
+                <span data-translate="map">Mapa</span>
+            </a>
+            <a href="perfil.html" class="nav-item">
+                <i class="fas fa-user"></i>
+                <span data-translate="profile">Perfil</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Business Detail Modal -->
+    <div class="modal" id="business-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-business-name">Negocio</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="business-info">
+                    <div class="business-image">
+                        <img id="modal-business-image" src="" alt="Business">
+                    </div>
+                    <div class="business-details">
+                        <p class="business-address" id="modal-business-address"></p>
+                        <p class="business-stars">
+                            <i class="fas fa-star"></i>
+                            <span id="modal-business-stars">0</span>
+                            <span data-translate="stars">estrellas</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="transaction-history">
+                    <h3 data-translate="transaction_history">Historial de Transacciones</h3>
+                    <div class="history-list" id="transaction-history">
+                        <!-- History items will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/translations.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+    
+    <script>
+        let userBusinesses = [];
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthentication();
+            updateTexts();
+            loadUserData();
+        });
+
+        function checkAuthentication() {
+            // [ESPACIO FIREBASE AUTH] - Check if user is logged in
+            // If not authenticated, redirect to login
+            currentUser = getCurrentUser();
+            if (!currentUser) {
+                window.location.href = '../index.html';
+                return;
+            }
+            
+            // Update user name in header
+            document.getElementById('user-name').textContent = currentUser.displayName || currentUser.email || currentUser.phoneNumber;
+        }
+
+        async function loadUserData() {
+            const loading = document.getElementById('loading');
+            const businessCards = document.getElementById('business-cards');
+            const emptyState = document.getElementById('empty-state');
+            
+            loading.style.display = 'block';
+            
+            try {
+                // [ESPACIO FIREBASE FIRESTORE] - Load user's points by business
+                userBusinesses = await cargarPuntosUsuario(currentUser.uid);
+                
+                if (userBusinesses.length === 0) {
+                    showEmptyState();
+                } else {
+                    displayBusinessCards();
+                    updateTotalStars();
+                }
+                
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                showError(error.message);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function displayBusinessCards() {
+            const businessCards = document.getElementById('business-cards');
+            const emptyState = document.getElementById('empty-state');
+            
+            businessCards.innerHTML = '';
+            emptyState.style.display = 'none';
+            
+            userBusinesses.forEach(business => {
+                const card = createBusinessCard(business);
+                businessCards.appendChild(card);
+            });
+        }
+
+        function createBusinessCard(business) {
+            const card = document.createElement('div');
+            card.className = 'business-card';
+            card.onclick = () => showBusinessDetail(business);
+            
+            card.innerHTML = `
+                <div class="business-image">
+                    <img src="${business.image || '../images/default-business.svg'}" alt="${business.name}">
+                </div>
+                <div class="business-info">
+                    <h3 class="business-name">${business.name}</h3>
+                    <p class="business-address">${business.address}</p>
+                    <div class="business-stars">
+                        <i class="fas fa-star"></i>
+                        <span class="stars-count">${business.stars}</span>
+                        <span class="stars-label" data-translate="stars">estrellas</span>
+                    </div>
+                </div>
+                <div class="card-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function showBusinessDetail(business) {
+            const modal = document.getElementById('business-modal');
+            
+            // Populate modal with business data
+            document.getElementById('modal-business-name').textContent = business.name;
+            document.getElementById('modal-business-image').src = business.image || '../images/default-business.svg';
+            document.getElementById('modal-business-address').textContent = business.address;
+            document.getElementById('modal-business-stars').textContent = business.stars;
+            
+            // Load transaction history
+            loadTransactionHistory(business.id);
+            
+            modal.style.display = 'block';
+        }
+
+        async function loadTransactionHistory(businessId) {
+            const historyContainer = document.getElementById('transaction-history');
+            historyContainer.innerHTML = '<div class="loading-small"><div class="spinner-small"></div></div>';
+            
+            try {
+                // [ESPACIO FIREBASE FIRESTORE] - Load transaction history
+                const transactions = await getTransactionHistory(currentUser.uid, businessId);
+                
+                if (transactions.length === 0) {
+                    historyContainer.innerHTML = `<p class="no-transactions" data-translate="no_transactions">No hay transacciones</p>`;
+                } else {
+                    historyContainer.innerHTML = transactions.map(transaction => `
+                        <div class="transaction-item">
+                            <div class="transaction-date">${formatDate(transaction.date)}</div>
+                            <div class="transaction-stars">
+                                <i class="fas fa-star"></i>
+                                +${transaction.stars}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                historyContainer.innerHTML = `<p class="error" data-translate="error_loading">Error al cargar historial</p>`;
+            }
+        }
+
+        function updateTotalStars() {
+            const totalStars = userBusinesses.reduce((sum, business) => sum + business.stars, 0);
+            document.getElementById('total-stars').textContent = totalStars;
+        }
+
+        function showEmptyState() {
+            const businessCards = document.getElementById('business-cards');
+            const emptyState = document.getElementById('empty-state');
+            
+            businessCards.innerHTML = '';
+            emptyState.style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('business-modal').style.display = 'none';
+        }
+
+        function goToMap() {
+            window.location.href = 'mapa.html';
+        }
+
+        function showError(message) {
+            alert(message);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('business-modal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // [ESPACIO FIREBASE FIRESTORE] - Firebase functions to implement
+        async function cargarPuntosUsuario(userId) {
+            // Query user's points by business from Firestore
+            // Return array of business objects with stars
+            console.log('Loading points for user:', userId);
+            // Temporary mock data - replace with Firebase query
+            return [];
+        }
+
+        async function getTransactionHistory(userId, businessId) {
+            // Query transaction history from Firestore
+            // Return array of transaction objects
+            console.log('Loading transaction history for user:', userId, 'business:', businessId);
+            // Temporary mock data - replace with Firebase query
+            return [];
+        }
+
+        function getCurrentUser() {
+            // [ESPACIO FIREBASE AUTH] - Get current authenticated user
+            // Return user object or null
+            return null;
+        }
+    </script>
+</body>
+</html>

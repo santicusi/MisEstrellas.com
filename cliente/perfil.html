@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MisEstrellas - Perfil</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <button class="back-btn" onclick="window.history.back()">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <h1 data-translate="profile">Perfil</h1>
+                <div class="language-toggle">
+                    <button class="lang-btn" onclick="changeLanguage('es')" id="lang-es">ES</button>
+                    <button class="lang-btn" onclick="changeLanguage('en')" id="lang-en">EN</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Profile Header -->
+            <div class="profile-header">
+                <div class="profile-avatar">
+                    <img id="profile-image" src="../images/default-avatar.svg" alt="Profile">
+                    <button class="edit-avatar-btn" onclick="changeProfileImage()">
+                        <i class="fas fa-camera"></i>
+                    </button>
+                </div>
+                <div class="profile-info">
+                    <h2 id="profile-name" class="profile-name">Usuario</h2>
+                    <p id="profile-contact" class="profile-contact">+57 300 123 4567</p>
+                    <p id="profile-member-since" class="profile-member-since" data-translate="member_since">Miembro desde: Enero 2024</p>
+                </div>
+            </div>
+
+            <!-- Profile Form -->
+            <div class="profile-form">
+                <div class="form-section">
+                    <h3 data-translate="personal_info">Información Personal</h3>
+                    
+                    <div class="input-group">
+                        <label data-translate="name">Nombre</label>
+                        <input type="text" id="user-name" class="input-field" placeholder="Tu nombre">
+                        <button class="edit-btn" onclick="enableEdit('user-name')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label data-translate="phone">Teléfono</label>
+                        <input type="tel" id="user-phone" class="input-field" placeholder="+57 300 123 4567" readonly>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label data-translate="email">Email</label>
+                        <input type="email" id="user-email" class="input-field" placeholder="email@ejemplo.com" readonly>
+                    </div>
+                </div>
+
+                <!-- Personal QR Code -->
+                <div class="form-section">
+                    <h3 data-translate="personal_qr">Tu Código QR Personal</h3>
+                    <div class="qr-section">
+                        <div class="qr-container">
+                            <div id="personal-qr" class="qr-code"></div>
+                            <div class="qr-loading" id="qr-loading" style="display: none;">
+                                <div class="spinner"></div>
+                                <p data-translate="generating_qr">Generando QR...</p>
+                            </div>
+                        </div>
+                        <div class="qr-info">
+                            <p class="qr-code-text" id="qr-code-text">ABC123XYZ</p>
+                            <p class="qr-description" data-translate="qr_description">Los negocios pueden escanear este código para darte puntos</p>
+                            <button class="btn-secondary" onclick="refreshQR()" data-translate="refresh_qr">Actualizar QR</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics -->
+                <div class="form-section">
+                    <h3 data-translate="statistics">Estadísticas</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4 id="total-stars">0</h4>
+                                <p data-translate="total_stars">Estrellas totales</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-store"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4 id="visited-businesses">0</h4>
+                                <p data-translate="visited_businesses">Negocios visitados</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-calendar"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4 id="this-month-stars">0</h4>
+                                <p data-translate="this_month">Este mes</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="form-section">
+                    <div class="profile-actions">
+                        <button class="btn-primary" onclick="saveProfile()" data-translate="save_changes">Guardar Cambios</button>
+                        <button class="btn-secondary" onclick="logout()" data-translate="logout">Cerrar Sesión</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="dashboard.html" class="nav-item">
+                <i class="fas fa-home"></i>
+                <span data-translate="dashboard">Dashboard</span>
+            </a>
+            <a href="escanear-qr.html" class="nav-item">
+                <i class="fas fa-qrcode"></i>
+                <span data-translate="scan_qr">Escanear QR</span>
+            </a>
+            <a href="mapa.html" class="nav-item">
+                <i class="fas fa-map"></i>
+                <span data-translate="map">Mapa</span>
+            </a>
+            <a href="perfil.html" class="nav-item active">
+                <i class="fas fa-user"></i>
+                <span data-translate="profile">Perfil</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Image Upload Modal -->
+    <div class="modal" id="image-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 data-translate="change_photo">Cambiar Foto</h2>
+                <button class="close-btn" onclick="closeImageModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="image-options">
+                    <button class="option-btn" onclick="selectImageFromGallery()">
+                        <i class="fas fa-image"></i>
+                        <span data-translate="select_from_gallery">Seleccionar de la galería</span>
+                    </button>
+                    <button class="option-btn" onclick="takePhoto()">
+                        <i class="fas fa-camera"></i>
+                        <span data-translate="take_photo">Tomar foto</span>
+                    </button>
+                </div>
+                <input type="file" id="file-input" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+    <script src="../js/translations.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+    
+    <script>
+        let currentUser = null;
+        let personalQRCode = null;
+        let isEditing = false;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthentication();
+            updateTexts();
+            loadUserProfile();
+            generatePersonalQR();
+            loadUserStatistics();
+        });
+
+        function checkAuthentication() {
+            // [ESPACIO FIREBASE AUTH] - Check if user is logged in
+            currentUser = getCurrentUser();
+            if (!currentUser) {
+                window.location.href = '../index.html';
+                return;
+            }
+        }
+
+        async function loadUserProfile() {
+            try {
+                // [ESPACIO FIREBASE] - Load user profile data
+                const userProfile = await getUserProfile(currentUser.uid);
+                
+                if (userProfile) {
+                    document.getElementById('profile-name').textContent = userProfile.name || 'Usuario';
+                    document.getElementById('profile-contact').textContent = userProfile.phone || userProfile.email;
+                    document.getElementById('user-name').value = userProfile.name || '';
+                    document.getElementById('user-phone').value = userProfile.phone || '';
+                    document.getElementById('user-email').value = userProfile.email || '';
+                    
+                    if (userProfile.photoURL) {
+                        document.getElementById('profile-image').src = userProfile.photoURL;
+                    }
+                    
+                    if (userProfile.createdAt) {
+                        const memberSince = new Date(userProfile.createdAt).toLocaleDateString('es-ES', {
+                            year: 'numeric',
+                            month: 'long'
+                        });
+                        document.getElementById('profile-member-since').textContent = `${t('member_since')}: ${memberSince}`;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+                showError(error.message);
+            }
+        }
+
+        async function generatePersonalQR() {
+            const qrContainer = document.getElementById('personal-qr');
+            const qrLoading = document.getElementById('qr-loading');
+            const qrCodeText = document.getElementById('qr-code-text');
+            
+            qrLoading.style.display = 'block';
+            qrContainer.innerHTML = '';
+            
+            try {
+                // [ESPACIO FIREBASE + QR] - Generate personal QR code
+                const qrData = await generarQRPersonal(currentUser.uid);
+                
+                // Generate QR code
+                const qrCode = new QRCode(qrContainer, {
+                    text: qrData.code,
+                    width: 200,
+                    height: 200,
+                    colorDark: '#FF8C42',
+                    colorLight: '#1A1A1A',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+                
+                qrCodeText.textContent = qrData.displayCode;
+                personalQRCode = qrData.code;
+                
+            } catch (error) {
+                console.error('Error generating QR code:', error);
+                qrContainer.innerHTML = '<p class="error">Error generando QR</p>';
+            } finally {
+                qrLoading.style.display = 'none';
+            }
+        }
+
+        async function loadUserStatistics() {
+            try {
+                // [ESPACIO FIREBASE] - Load user statistics
+                const stats = await getUserStatistics(currentUser.uid);
+                
+                document.getElementById('total-stars').textContent = stats.totalStars || '0';
+                document.getElementById('visited-businesses').textContent = stats.visitedBusinesses || '0';
+                document.getElementById('this-month-stars').textContent = stats.thisMonthStars || '0';
+                
+            } catch (error) {
+                console.error('Error loading statistics:', error);
+            }
+        }
+
+        function enableEdit(fieldId) {
+            const field = document.getElementById(fieldId);
+            const editBtn = field.parentElement.querySelector('.edit-btn');
+            
+            if (field.readOnly) {
+                field.readOnly = false;
+                field.focus();
+                editBtn.innerHTML = '<i class="fas fa-check"></i>';
+                editBtn.classList.add('save-mode');
+                isEditing = true;
+            } else {
+                field.readOnly = true;
+                editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+                editBtn.classList.remove('save-mode');
+                isEditing = false;
+            }
+        }
+
+        async function saveProfile() {
+            if (!isEditing) return;
+            
+            const name = document.getElementById('user-name').value.trim();
+            
+            if (!name) {
+                showError(t('name_required'));
+                return;
+            }
+            
+            try {
+                // [ESPACIO FIREBASE] - Update user profile
+                await actualizarPerfil(currentUser.uid, {
+                    name: name
+                });
+                
+                // Update display
+                document.getElementById('profile-name').textContent = name;
+                
+                // Reset edit mode
+                const nameField = document.getElementById('user-name');
+                const editBtn = nameField.parentElement.querySelector('.edit-btn');
+                nameField.readOnly = true;
+                editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+                editBtn.classList.remove('save-mode');
+                isEditing = false;
+                
+                showSuccess(t('profile_updated'));
+                
+            } catch (error) {
+                console.error('Error updating profile:', error);
+                showError(error.message);
+            }
+        }
+
+        function changeProfileImage() {
+            document.getElementById('image-modal').style.display = 'block';
+        }
+
+        function closeImageModal() {
+            document.getElementById('image-modal').style.display = 'none';
+        }
+
+        function selectImageFromGallery() {
+            document.getElementById('file-input').click();
+        }
+
+        function takePhoto() {
+            // For mobile devices, this will open the camera
+            const fileInput = document.getElementById('file-input');
+            fileInput.setAttribute('capture', 'camera');
+            fileInput.click();
+        }
+
+        async function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                showError(t('invalid_file_type'));
+                return;
+            }
+            
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                showError(t('file_too_large'));
+                return;
+            }
+            
+            try {
+                // [ESPACIO FIREBASE STORAGE] - Upload image to Firebase Storage
+                const imageUrl = await uploadProfileImage(currentUser.uid, file);
+                
+                // Update profile image
+                document.getElementById('profile-image').src = imageUrl;
+                
+                // Update user profile with new image URL
+                await actualizarPerfil(currentUser.uid, {
+                    photoURL: imageUrl
+                });
+                
+                closeImageModal();
+                showSuccess(t('image_updated'));
+                
+            } catch (error) {
+                console.error('Error uploading image:', error);
+                showError(error.message);
+            }
+        }
+
+        async function refreshQR() {
+            await generatePersonalQR();
+            showSuccess(t('qr_refreshed'));
+        }
+
+        async function logout() {
+            if (confirm(t('confirm_logout'))) {
+                try {
+                    // [ESPACIO FIREBASE AUTH] - Sign out user
+                    await signOut();
+                    window.location.href = '../index.html';
+                } catch (error) {
+                    console.error('Error signing out:', error);
+                    showError(error.message);
+                }
+            }
+        }
+
+        function showError(message) {
+            alert(message);
+        }
+
+        function showSuccess(message) {
+            alert(message);
+        }
+
+        function getCurrentUser() {
+            // [ESPACIO FIREBASE AUTH] - Get current authenticated user
+            return null;
+        }
+
+        // [ESPACIO FIREBASE] - Firebase functions to implement
+        async function getUserProfile(userId) {
+            // Get user profile from Firestore
+            console.log('Getting user profile for:', userId);
+            return null;
+        }
+
+        async function getUserStatistics(userId) {
+            // Get user statistics from Firestore
+            console.log('Getting user statistics for:', userId);
+            return {
+                totalStars: 0,
+                visitedBusinesses: 0,
+                thisMonthStars: 0
+            };
+        }
+
+        async function generarQRPersonal(userId) {
+            // Generate personal QR code data
+            const code = `USER:${userId}:${Date.now()}`;
+            const displayCode = code.substring(0, 10).toUpperCase();
+            
+            return {
+                code: code,
+                displayCode: displayCode
+            };
+        }
+
+        async function actualizarPerfil(userId, profileData) {
+            // Update user profile in Firestore
+            console.log('Updating profile for:', userId, profileData);
+        }
+
+        async function uploadProfileImage(userId, file) {
+            // Upload image to Firebase Storage
+            console.log('Uploading image for:', userId);
+            return '../images/default-avatar.svg';
+        }
+
+        async function signOut() {
+            // Sign out user from Firebase Auth
+            console.log('Signing out user');
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('image-modal');
+            if (event.target === modal) {
+                closeImageModal();
+            }
+        }
+    </script>
+</body>
+</html>
