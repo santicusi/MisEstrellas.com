@@ -4,10 +4,53 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MisEstrellas - Dar Estrellas</title>
+    <!-- SDKs de Firebase compatibles con navegadores normales (sin bundler) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="../css/components.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
 </head>
+
+<style>
+    :root {
+    /* Variables principales que faltan */
+    --bg-black: #0F0F0F;
+    --text-white: #FFFFFF;
+    --success-green: #4CAF50;
+    --error-red: #F44336;
+    --warning-yellow: #FFC107;
+    
+    /* Colores mejorados */
+    --primary-orange: #FF8C42;
+    --hover-orange: #FF7A2B;
+    --accent-orange: #FFA366;
+    --dark-orange: #E67A35;
+    
+    /* Tonos cálidos en lugar de grises */
+    --warm-gray: #2A2A2A;
+    --light-warm: #363636;
+    --card-warm: #1F1F1F;
+    --border-warm: #404040;
+    --secondary-gray: #AAA;
+    
+    /* Gradientes */
+    --gradient-card: linear-gradient(135deg, #1F1F1F 0%, #2A2A2A 100%);
+    --gradient-orange: linear-gradient(135deg, #FF8C42 0%, #FFA366 100%);
+    --gradient-dark: linear-gradient(135deg, #0F0F0F 0%, #1F1F1F 100%);
+    
+    /* Actualizar variables existentes */
+    --card-bg: var(--gradient-card);
+    --border-color: var(--border-warm);
+    --input-bg: var(--warm-gray);
+    --shadow-dark: rgba(0, 0, 0, 0.3);
+    --shadow-orange: rgba(255, 140, 66, 0.2);
+}
+</style>
 <body>
     <div class="container">
         <!-- Header -->
@@ -193,7 +236,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+    <script src="../js/qrcode.min.js"></script>
     <script src="../js/translations.js"></script>
     <script src="../js/utils.js"></script>
     <script src="../js/firebase-config.js"></script>
@@ -204,30 +247,68 @@
         let currentPoints = 1;
         let currentQRCode = null;
         let qrExpirationTimer = null;
+        let qrUsageListener = null;
         let businessData = null;
 
         document.addEventListener('DOMContentLoaded', function() {
-            checkAuthentication();
-            updateTexts();
-            loadBusinessData();
-            updatePointsDisplay();
+            console.log('🚀 Inicializando dar-estrellas.html');
+    
+            // 🔍 DEBUG: Verificar si QRCode se cargó
+            console.log('QRCode disponible:', typeof QRCode !== 'undefined');
+            if (typeof QRCode !== 'undefined') {
+                console.log('✅ QRCode cargado correctamente');
+            } else {
+                console.error('❌ QRCode NO se cargó');
+            }
+            
+            // Esperar a que Firebase esté listo
+            if (window.auth) {
+                initializePage();
+            } else {
+                window.addEventListener('firebaseReady', initializePage);
+            }
         });
 
-        function checkAuthentication() {
-            // [ESPACIO FIREBASE AUTH] - Check if admin is logged in
-            currentUser = getCurrentUser();
-            if (!currentUser) {
-                window.location.href = '../index.html';
-                return;
+        function initializePage() {
+            console.log('🔥 Firebase listo, inicializando página');
+            checkAuthentication();
+            updateTexts();
+            updatePointsDisplay();
+            updateButtonStates();
+        }
+
+        async function checkAuthentication() {
+            console.log('🔐 Verificando autenticación...');
+            
+            try {
+                // Esperar a que el usuario esté listo
+                currentUser = await FirebaseUtils.waitForAuth();
+                
+                if (!currentUser) {
+                    console.log('❌ Usuario no autenticado, redirigiendo...');
+                    window.location.href = '../index.html';
+                    return;
+                }
+                
+                console.log('✅ Usuario autenticado:', currentUser.uid);
+                
+                // Cargar datos del negocio
+                await loadBusinessData();
+                
+            } catch (error) {
+                console.error('❌ Error en autenticación:', error);
+                showError('Error de autenticación: ' + error.message);
             }
         }
 
         async function loadBusinessData() {
             try {
-                // [ESPACIO FIREBASE] - Load business data
-                businessData = await getBusinessData(currentUser.uid);
+                console.log('🏪 Cargando datos del negocio...');
+                businessData = await cargarDatosNegocio(currentUser.uid);
+                console.log('✅ Datos del negocio cargados:', businessData);
             } catch (error) {
-                console.error('Error loading business data:', error);
+                console.error('❌ Error cargando datos del negocio:', error);
+                showError('Error cargando datos del negocio');
             }
         }
 
@@ -273,20 +354,33 @@
         }
 
         async function generateQR() {
+            
+            if (typeof QRCode === 'undefined') {
+                showError('Librería QR no cargada, intenta de nuevo');
+                return;
+            }
+            console.log('📱 Generando QR para', currentPoints, 'puntos');
+            
             const qrPlaceholder = document.getElementById('qr-placeholder');
             const qrDisplay = document.getElementById('qr-code-display');
             const qrLoading = document.getElementById('qr-loading');
             
-            // Show loading
+            // Mostrar loading
             qrPlaceholder.style.display = 'none';
             qrDisplay.style.display = 'none';
             qrLoading.style.display = 'block';
             
             try {
-                // [ESPACIO FIREBASE + QR] - Generate QR code
-                const qrData = await crearQRPuntos(currentPoints, currentUser.uid);
+                // Verificar que el usuario esté autenticado
+                if (!currentUser) {
+                    throw new Error('Usuario no autenticado');
+                }
                 
-                // Generate QR code
+                // Crear QR usando la función de Firebase
+                const qrData = await crearQRPuntos(currentPoints, currentUser.uid);
+                console.log('✅ QR creado:', qrData);
+                
+                // Generar código QR visual
                 const qrCodeElement = document.getElementById('qr-code');
                 qrCodeElement.innerHTML = '';
                 
@@ -299,28 +393,28 @@
                     correctLevel: QRCode.CorrectLevel.H
                 });
                 
-                // Update display
+                // Actualizar display
                 document.getElementById('qr-points-display').textContent = currentPoints;
                 document.getElementById('qr-code-text').textContent = qrData.displayCode;
                 
-                // Show QR display
+                // Mostrar QR display
                 qrLoading.style.display = 'none';
                 qrDisplay.style.display = 'block';
                 
-                // Set expiration timer
+                // Iniciar timer de expiración
                 startExpirationTimer(qrData.expiresIn);
                 
-                // Store current QR data
+                // Guardar datos del QR actual
                 currentQRCode = qrData;
                 
-                // Listen for QR scans
+                // Escuchar por escaneos del QR
                 listenForQRScans(qrData.id);
                 
             } catch (error) {
-                console.error('Error generating QR:', error);
+                console.error('❌ Error generando QR:', error);
                 qrLoading.style.display = 'none';
                 qrPlaceholder.style.display = 'block';
-                showError(error.message);
+                showError('Error generando QR: ' + error.message);
             }
         }
 
@@ -343,8 +437,9 @@
         }
 
         function expireQR() {
+            console.log('⏰ QR expirado');
             clearQR();
-            showError(t('qr_expired'));
+            showError('El código QR ha expirado');
         }
 
         function regenerateQR() {
@@ -359,36 +454,83 @@
             qrDisplay.style.display = 'none';
             qrPlaceholder.style.display = 'block';
             
-            // Clear timer
+            // Limpiar timer
             if (qrExpirationTimer) {
                 clearInterval(qrExpirationTimer);
                 qrExpirationTimer = null;
             }
             
-            // Clear QR data
+            // Limpiar listener
+            if (qrUsageListener) {
+                qrUsageListener();
+                qrUsageListener = null;
+            }
+            
+            // Limpiar datos del QR
             currentQRCode = null;
         }
 
-        async function listenForQRScans(qrId) {
-            // [ESPACIO FIREBASE] - Listen for QR scan events
-            console.log('Listening for QR scans:', qrId);
+        function listenForQRScans(qrId) {
+            console.log('👂 Escuchando uso del QR:', qrId);
             
-            // This would be implemented with Firebase real-time listeners
-            // For now, we'll simulate it
-            // onQRScanned would be called when a client scans the QR
+            try {
+                // Usar la función de Firebase para escuchar cambios
+                qrUsageListener = listenForQRUsage(qrId, (qrData) => {
+                    console.log('🎉 QR usado:', qrData);
+                    onQRScanned(qrData);
+                });
+                
+            } catch (error) {
+                console.error('❌ Error escuchando QR:', error);
+            }
         }
 
-        function onQRScanned(clientData) {
-            // Called when a client scans the QR code
-            showConfirmationModal(clientData);
+        async function onQRScanned(qrData) {
+            console.log('📱 Cliente escaneó QR:', qrData);
+            
+            try {
+                // Obtener datos del cliente que escaneó
+                if (qrData.clientData) {
+                    showConfirmationModal(qrData.clientData);
+                } else if (qrData.usedBy) {
+                    // Si no tenemos clientData, buscar los datos del usuario
+                    const clientData = await getUserData(qrData.usedBy);
+                    if (clientData) {
+                        showConfirmationModal({
+                            name: clientData.name || clientData.displayName || 'Cliente',
+                            phone: clientData.phoneNumber,
+                            email: clientData.email,
+                            avatar: clientData.avatar
+                        });
+                    } else {
+                        showConfirmationModal({
+                            name: 'Cliente',
+                            phone: 'No disponible',
+                            email: '',
+                            avatar: null
+                        });
+                    }
+                }
+                
+            } catch (error) {
+                console.error('❌ Error obteniendo datos del cliente:', error);
+                showConfirmationModal({
+                    name: 'Cliente',
+                    phone: 'No disponible',
+                    email: '',
+                    avatar: null
+                });
+            }
         }
 
         function showConfirmationModal(clientData) {
+            console.log('💫 Mostrando confirmación para:', clientData);
+            
             const modal = document.getElementById('confirmation-modal');
             
-            // Populate modal with client data
+            // Llenar modal con datos del cliente
             document.getElementById('modal-client-name').textContent = clientData.name || 'Cliente';
-            document.getElementById('modal-client-contact').textContent = clientData.phone || clientData.email;
+            document.getElementById('modal-client-contact').textContent = clientData.phone || clientData.email || 'No disponible';
             document.getElementById('modal-client-avatar').src = clientData.avatar || '../images/default-avatar.svg';
             document.getElementById('modal-points').textContent = currentPoints;
             document.getElementById('modal-business').textContent = businessData?.name || 'Mi Negocio';
@@ -401,17 +543,19 @@
         }
 
         async function confirmTransaction() {
+            console.log('✅ Confirmando transacción...');
+            
             try {
-                // [ESPACIO FIREBASE] - Process transaction
-                await confirmarPuntos(currentQRCode.id, currentPoints);
+                // La transacción ya fue procesada por el cliente
+                // Solo mostramos éxito y limpiamos
                 
                 closeConfirmationModal();
                 showSuccessModal();
                 clearQR();
                 
             } catch (error) {
-                console.error('Error confirming transaction:', error);
-                showError(error.message);
+                console.error('❌ Error confirmando transacción:', error);
+                showError('Error confirmando transacción: ' + error.message);
             }
         }
 
@@ -429,51 +573,68 @@
         }
 
         function showError(message) {
-            alert(message);
-        }
-
-        function getCurrentUser() {
-            // [ESPACIO FIREBASE AUTH] - Get current authenticated user
-            return null;
-        }
-
-        // [ESPACIO FIREBASE + QR] - Firebase functions to implement
-        async function crearQRPuntos(puntos, businessId) {
-            // Generate QR code data and store in Firebase
-            const qrId = generateId();
-            const code = `POINTS:${businessId}:${qrId}:${puntos}`;
-            const displayCode = qrId.substring(0, 8).toUpperCase();
+            console.error('🚨 Error:', message);
             
-            console.log('Creating QR for points:', puntos, 'business:', businessId);
+            // Crear notification toast más elegante
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #f44336;
+                color: white;
+                padding: 16px 24px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 10000;
+                font-weight: 500;
+                max-width: 400px;
+                word-wrap: break-word;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
             
-            return {
-                id: qrId,
-                code: code,
-                displayCode: displayCode,
-                points: puntos,
-                expiresIn: 300, // 5 minutes
-                businessId: businessId
-            };
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 5000);
         }
 
-        async function confirmarPuntos(qrId, points) {
-            // Process the transaction in Firebase
-            console.log('Confirming transaction:', qrId, points);
+        function showSuccess(message) {
+            console.log('✅ Éxito:', message);
+            
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #4caf50;
+                color: white;
+                padding: 16px 24px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 10000;
+                font-weight: 500;
+                max-width: 400px;
+                word-wrap: break-word;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 3000);
         }
 
-        async function getBusinessData(businessId) {
-            // Get business data from Firebase
-            return {
-                name: 'Mi Negocio',
-                type: 'Restaurante'
-            };
+        function updateTexts() {
+            // Función para actualizar textos de traducción
+            console.log('🌐 Actualizando textos...');
         }
 
-        function generateId() {
-            return Math.random().toString(36).substr(2, 9);
-        }
-
-        // Close modals when clicking outside
+        // Cerrar modales al hacer clic fuera
         window.onclick = function(event) {
             const confirmationModal = document.getElementById('confirmation-modal');
             const successModal = document.getElementById('success-modal');
@@ -487,12 +648,28 @@
             }
         }
 
-        // Cleanup on page unload
+        // Limpieza al salir de la página
         window.addEventListener('beforeunload', function() {
             if (qrExpirationTimer) {
                 clearInterval(qrExpirationTimer);
             }
+            
+            if (qrUsageListener) {
+                qrUsageListener();
+            }
         });
+
+        // Debug: Función para probar confirmación manual
+        window.testConfirmation = function() {
+            showConfirmationModal({
+                name: 'Juan Pérez Test',
+                phone: '+57 300 123 4567',
+                email: 'juan@test.com',
+                avatar: null
+            });
+        };
+
+        console.log('🎉 dar-estrellas.html cargado completamente');
     </script>
 </body>
 </html>

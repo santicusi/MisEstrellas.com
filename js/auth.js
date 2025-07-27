@@ -1,5 +1,8 @@
 // Authentication Module for MisEstrellas
-// [ESPACIO FIREBASE AUTENTICACIÓN] - Complete authentication implementation
+// USAR las variables globales de firebase-config.js
+// 🔥 ELIMINAR declaración conflictiva
+// const auth = window.auth || firebase.auth(); // ❌ ELIMINAR ESTA LÍNEA
+const db = window.db || firebase.firestore();
 
 // Authentication state management
 let currentAuthUser = null;
@@ -11,7 +14,7 @@ let confirmationResult = null;
 
 // Initialize auth state management
 document.addEventListener('DOMContentLoaded', function() {
-    if (typeof firebase !== 'undefined' && auth) {
+    if (typeof firebase !== 'undefined' && window.auth) {
         initializeAuth();
     }
 });
@@ -34,18 +37,37 @@ function initializeAuth() {
     }
     
     // Listen for auth state changes
-    auth.onAuthStateChanged((user) => {
+    window.auth.onAuthStateChanged(async (user) => {
         currentAuthUser = user;
         authStateCallbacks.forEach(callback => callback(user));
-        
+
         if (user) {
             console.log('User authenticated:', user.uid);
             updateUserSession(user);
+            
+            // 🔥 NO REDIRIGIR AUTOMÁTICAMENTE - solo almacenar estado
+            
         } else {
             console.log('User not authenticated');
             clearUserSession();
+            
+            // 🔥 COMENTAR redirección automática para evitar loops
+            // Solo redirigir si estamos en páginas protegidas
+            // const currentPath = window.location.pathname;
+            // const isProtectedPage = currentPath.includes('/admin/') || currentPath.includes('/cliente/');
+            
+            // if (isProtectedPage) {
+            //     window.location.href = '/index.html';
+            // }
         }
     });
+}
+
+// Para autenticación por SMS (clientes)
+async function authenticateClientWithPhone(phoneNumber) {
+    const appVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container');
+    const confirmationResult = await window.auth.signInWithPhoneNumber(phoneNumber, appVerifier);
+    return confirmationResult;
 }
 
 // Client Authentication Functions
@@ -81,7 +103,7 @@ async function authenticateClientWithPhone(phoneNumber) {
         }
         
         // Send SMS verification code
-        confirmationResult = await auth.signInWithPhoneNumber(
+        confirmationResult = await window.auth.signInWithPhoneNumber(
             formattedPhone, 
             window.recaptchaVerifier
         );
@@ -109,7 +131,7 @@ async function authenticateClientWithPhone(phoneNumber) {
 async function authenticateClientWithEmail(email) {
     try {
         // Check if user exists
-        const signInMethods = await auth.fetchSignInMethodsForEmail(email);
+        const signInMethods = await window.auth.fetchSignInMethodsForEmail(email);
         
         if (signInMethods.length === 0) {
             // Create new user with email
@@ -130,7 +152,7 @@ async function createClientWithEmail(email) {
     const tempPassword = generateTempPassword();
     
     try {
-        const userCredential = await auth.createUserWithEmailAndPassword(email, tempPassword);
+        const userCredential = await window.auth.createUserWithEmailAndPassword(email, tempPassword);
         
         // Send email verification
         await userCredential.user.sendEmailVerification();
@@ -162,7 +184,7 @@ async function sendEmailVerificationCode(email) {
     };
     
     try {
-        await auth.sendSignInLinkToEmail(email, actionCodeSettings);
+        await window.auth.sendSignInLinkToEmail(email, actionCodeSettings);
         
         // Store email for sign-in completion
         localStorage.setItem('emailForSignIn', email);
@@ -179,39 +201,57 @@ async function sendEmailVerificationCode(email) {
     }
 }
 
-// Admin Authentication Functions
+// 🔥 Admin Authentication Functions - VERSIÓN CORREGIDA
 async function loginAdmin(email, password) {
     try {
-        showAuthLoading(true);
+        console.log('🔄 Iniciando login admin con:', email);
         
         if (!email || !password) {
             throw new Error('Email y contraseña son requeridos');
         }
         
         // Sign in with email and password
-        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        const userCredential = await window.auth.signInWithEmailAndPassword(email, password);
+        console.log('✅ Autenticación Firebase exitosa, UID:', userCredential.user.uid);
         
-        // Verify admin role
-        const userProfile = await getUserProfile(userCredential.user.uid);
+        // Verify admin role - obtener documento de Firestore
+        const userDoc = await window.db.collection('users').doc(userCredential.user.uid).get();
         
-        if (!userProfile || userProfile.userType !== 'admin') {
-            await auth.signOut();
+        console.log('📄 Documento existe:', userDoc.exists);
+        
+        if (!userDoc.exists) {
+            console.log('❌ El documento no existe en Firestore');
+            await window.auth.signOut();
+            throw new Error('Usuario no encontrado en la base de datos');
+        }
+
+        const userData = userDoc.data();
+        console.log('📊 Datos completos del usuario:', userData);
+        
+        // Debugging detallado del userType
+        const userType = userData.userType;
+        console.log('🔍 userType extraído:', userType);
+        console.log('🔍 Tipo de userType:', typeof userType);
+        console.log('🔍 userType === "admin":', userType === 'admin');
+        
+        // Verificación más robusta
+        if (!userType || userType.toString().trim() !== 'admin') {
+            console.log('🚫 No es admin, valor actual:', userType);
+            await window.auth.signOut();
             throw new Error('Acceso no autorizado. Solo administradores pueden acceder');
         }
-        
-        console.log('Admin authenticated:', userCredential.user.uid);
+
+        console.log('🎉 Admin autenticado correctamente');
         
         return {
             success: true,
             user: userCredential.user,
-            profile: userProfile
+            profile: userData
         };
         
     } catch (error) {
-        console.error('Admin login error:', error);
-        throw new Error(getAuthErrorMessage(error.code));
-    } finally {
-        showAuthLoading(false);
+        console.error('❌ Admin login error:', error);
+        throw new Error(getAuthErrorMessage(error.code) || error.message);
     }
 }
 
@@ -240,8 +280,8 @@ async function verificarCodigo(verificationCode) {
             // Check if it's an email sign-in link
             const email = localStorage.getItem('emailForSignIn');
             
-            if (email && auth.isSignInWithEmailLink(window.location.href)) {
-                const result = await auth.signInWithEmailLink(email, window.location.href);
+            if (email && window.auth.isSignInWithEmailLink(window.location.href)) {
+                const result = await window.auth.signInWithEmailLink(email, window.location.href);
                 
                 // Clear stored email
                 localStorage.removeItem('emailForSignIn');
@@ -275,7 +315,7 @@ async function createUserProfile(userId, profileData) {
             isActive: true
         };
         
-        await db.collection(COLLECTIONS.USERS).doc(userId).set(profile);
+        await window.db.collection(window.COLLECTIONS.USERS).doc(userId).set(profile);
         
         console.log('User profile created:', userId);
         return profile;
@@ -320,7 +360,7 @@ async function createOrUpdateClientProfile(user) {
 
 async function getUserProfile(userId) {
     try {
-        const userDoc = await db.collection(COLLECTIONS.USERS).doc(userId).get();
+        const userDoc = await window.db.collection(window.COLLECTIONS.USERS).doc(userId).get();
         
         if (userDoc.exists) {
             return { id: userDoc.id, ...userDoc.data() };
@@ -336,7 +376,7 @@ async function getUserProfile(userId) {
 
 async function updateUserProfile(userId, updates) {
     try {
-        await db.collection(COLLECTIONS.USERS).doc(userId).update({
+        await window.db.collection(window.COLLECTIONS.USERS).doc(userId).update({
             ...updates,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
@@ -388,7 +428,7 @@ function isUserLoggedIn() {
 // Sign Out
 async function signOut() {
     try {
-        await auth.signOut();
+        await window.auth.signOut();
         clearUserSession();
         
         console.log('User signed out');
@@ -483,7 +523,7 @@ function onAuthStateChanged(callback) {
 // Password Reset (for admins)
 async function resetPassword(email) {
     try {
-        await auth.sendPasswordResetEmail(email);
+        await window.auth.sendPasswordResetEmail(email);
         
         return {
             success: true,
@@ -500,7 +540,7 @@ async function resetPassword(email) {
 async function registerAdmin(email, password, businessData) {
     try {
         // Create admin user
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const userCredential = await window.auth.createUserWithEmailAndPassword(email, password);
         
         // Create admin profile
         await createUserProfile(userCredential.user.uid, {
@@ -541,7 +581,7 @@ async function createBusinessProfile(businessId, businessData) {
             totalRedemptions: 0
         };
         
-        await db.collection(COLLECTIONS.BUSINESSES).doc(businessId).set(profile);
+        await window.db.collection(window.COLLECTIONS.BUSINESSES).doc(businessId).set(profile);
         
         console.log('Business profile created:', businessId);
         return profile;
@@ -566,4 +606,3 @@ window.getUserProfile = getUserProfile;
 window.updateUserProfile = updateUserProfile;
 
 console.log('Authentication module loaded');
-

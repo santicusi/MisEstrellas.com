@@ -1,13 +1,53 @@
-<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MisEstrellas - Perfil del Negocio</title>
+    <!-- SDKs de Firebase compatibles con navegadores normales (sin bundler) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="../css/components.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
+<style>
+    :root {
+    /* Variables principales que faltan */
+    --bg-black: #0F0F0F;
+    --text-white: #FFFFFF;
+    --success-green: #4CAF50;
+    --error-red: #F44336;
+    --warning-yellow: #FFC107;
+    
+    /* Colores mejorados */
+    --primary-orange: #FF8C42;
+    --hover-orange: #FF7A2B;
+    --accent-orange: #FFA366;
+    --dark-orange: #E67A35;
+    
+    /* Tonos cálidos en lugar de grises */
+    --warm-gray: #2A2A2A;
+    --light-warm: #363636;
+    --card-warm: #1F1F1F;
+    --border-warm: #404040;
+    --secondary-gray: #AAA;
+    
+    /* Gradientes */
+    --gradient-card: linear-gradient(135deg, #1F1F1F 0%, #2A2A2A 100%);
+    --gradient-orange: linear-gradient(135deg, #FF8C42 0%, #FFA366 100%);
+    --gradient-dark: linear-gradient(135deg, #0F0F0F 0%, #1F1F1F 100%);
+    
+    /* Actualizar variables existentes */
+    --card-bg: var(--gradient-card);
+    --border-color: var(--border-warm);
+    --input-bg: var(--warm-gray);
+    --shadow-dark: rgba(0, 0, 0, 0.3);
+    --shadow-orange: rgba(255, 140, 66, 0.2);
+}
+</style>
 <body>
     <div class="container">
         <!-- Header -->
@@ -29,7 +69,7 @@
             <!-- Business Header -->
             <div class="business-header">
                 <div class="business-image-container">
-                    <img id="business-image" src="../images/default-business.svg" alt="Negocio" class="business-image">
+                    <img id="business-image" src="../images/negocio.png" alt="Negocio" class="business-image">
                     <button class="edit-image-btn" onclick="changeBusinessImage()">
                         <i class="fas fa-camera"></i>
                     </button>
@@ -179,49 +219,6 @@
                     </div>
                 </div>
 
-                <!-- Business Statistics -->
-                <div class="form-section">
-                    <h3 data-translate="statistics">Estadísticas</h3>
-                    <div class="stats-grid">
-                        <div class="stat-card readonly">
-                            <div class="stat-icon">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4 id="total-customers">0</h4>
-                                <p data-translate="total_customers">Total clientes</p>
-                            </div>
-                        </div>
-                        <div class="stat-card readonly">
-                            <div class="stat-icon">
-                                <i class="fas fa-star"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4 id="total-points-given">0</h4>
-                                <p data-translate="total_points_given">Puntos otorgados</p>
-                            </div>
-                        </div>
-                        <div class="stat-card readonly">
-                            <div class="stat-icon">
-                                <i class="fas fa-gift"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4 id="total-redemptions">0</h4>
-                                <p data-translate="total_redemptions">Canjes realizados</p>
-                            </div>
-                        </div>
-                        <div class="stat-card readonly">
-                            <div class="stat-icon">
-                                <i class="fas fa-calendar"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4 id="member-since">-</h4>
-                                <p data-translate="member_since">Miembro desde</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Actions -->
                 <div class="form-section">
                     <div class="form-actions">
@@ -303,79 +300,223 @@
         let businessData = null;
         let originalConfiguration = null;
 
+        // Función auxiliar para verificar si las traducciones están disponibles
+        function t(key) {
+            if (typeof window.translations !== 'undefined' && window.translations[key]) {
+                return window.translations[key];
+            }
+            return key; // Retorna la clave si no se encuentra la traducción
+        }
+
+        // Función auxiliar para actualizar textos
+        function updateTexts() {
+            try {
+                if (typeof window.updateTexts === 'function' && window.updateTexts !== updateTexts) {
+                    window.updateTexts();
+                }
+            } catch (error) {
+                console.warn('⚠️ Error actualizando textos:', error);
+            }
+        }
+
+        // Función auxiliar para cambiar idioma
+        function changeLanguage(lang) {
+            if (typeof window.changeLanguage === 'function') {
+                window.changeLanguage(lang);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
-            checkAuthentication();
-            updateTexts();
-            loadBusinessData();
-            setupHoursToggle();
+            console.log('🔄 DOM loaded, waiting for Firebase...');
+            
+            // Verificar si Firebase ya está listo
+            if (window.FirebaseUtils && window.FirebaseUtils.isReady()) {
+                console.log('✅ Firebase ya está listo');
+                initPage();
+            } else {
+                // Escuchar el evento de Firebase listo
+                window.addEventListener('firebaseReady', function(event) {
+                    console.log('🎉 Firebase ready event received:', event.detail);
+                    initPage();
+                });
+                
+                // Fallback: intentar después de 2 segundos
+                setTimeout(() => {
+                    if (!currentUser) {
+                        console.log('⏰ Fallback: intentando inicializar después de timeout');
+                        initPage();
+                    }
+                }, 2000);
+            }
         });
 
+        function initPage() {
+            try {
+                checkAuthentication();
+                updateTexts();
+            } catch (error) {
+                console.error('❌ Error inicializando página:', error);
+                showError('Error inicializando la página: ' + error.message);
+            }
+        }
+
         function checkAuthentication() {
-            // [ESPACIO FIREBASE AUTH] - Check if admin is logged in
-            currentUser = getCurrentUser();
-            if (!currentUser) {
-                window.location.href = '../index.html';
-                return;
+            try {
+                // Verificar si Firebase Auth está disponible
+                if (!window.auth) {
+                    console.error('❌ Firebase Auth no está disponible');
+                    setTimeout(() => checkAuthentication(), 500); // Reintentar
+                    return;
+                }
+
+                console.log('🔍 Verificando autenticación...');
+
+                // Usar el helper de Firebase para esperar la autenticación
+                if (window.FirebaseUtils && window.FirebaseUtils.waitForAuth) {
+                    window.FirebaseUtils.waitForAuth().then((user) => {
+                        if (user) {
+                            currentUser = user;
+                            console.log('✅ Usuario autenticado:', user.uid);
+                            loadBusinessData();
+                            setupHoursToggle();
+                        } else {
+                            console.log('❌ Usuario no autenticado, redirigiendo...');
+                            window.location.href = '../index.html';
+                        }
+                    });
+                } else {
+                    // Fallback al método tradicional
+                    window.auth.onAuthStateChanged((user) => {
+                        if (user) {
+                            currentUser = user;
+                            console.log('✅ Usuario autenticado:', user.uid);
+                            loadBusinessData();
+                            setupHoursToggle();
+                        } else {
+                            console.log('❌ Usuario no autenticado, redirigiendo...');
+                            window.location.href = '../index.html';
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('❌ Error en checkAuthentication:', error);
+                showError('Error de autenticación: ' + error.message);
             }
         }
 
         async function loadBusinessData() {
             const loading = document.getElementById('loading');
-            loading.style.display = 'block';
+            if (loading) loading.style.display = 'block';
             
             try {
-                // [ESPACIO FIREBASE] - Load business data
-                businessData = await cargarDatosNegocio(currentUser.uid);
+                if (!currentUser || !currentUser.uid) {
+                    throw new Error('Usuario no autenticado o sin UID');
+                }
+
+                console.log('📊 Cargando datos del negocio para:', currentUser.uid);
+                
+                // Usar la función global de firebase-config
+                if (window.cargarDatosNegocio) {
+                    businessData = await window.cargarDatosNegocio(currentUser.uid);
+                } else {
+                    throw new Error('Función cargarDatosNegocio no disponible');
+                }
                 
                 if (businessData) {
+                    console.log('✅ Datos del negocio cargados:', businessData);
                     populateBusinessForm();
                     loadBusinessStatistics();
+                } else {
+                    console.log('⚠️ No se encontraron datos del negocio');
+                    businessData = getDefaultBusinessData();
+                    populateBusinessForm();
                 }
                 
             } catch (error) {
-                console.error('Error loading business data:', error);
-                showError(error.message);
+                console.error('❌ Error cargando datos del negocio:', error);
+                showError('Error al cargar datos: ' + error.message);
+                
+                // Usar datos por defecto en caso de error
+                businessData = getDefaultBusinessData();
+                populateBusinessForm();
             } finally {
-                loading.style.display = 'none';
+                if (loading) loading.style.display = 'none';
             }
+        }
+
+        function getDefaultBusinessData() {
+            return {
+                name: 'Mi Negocio',
+                category: 'Restaurante',
+                email: currentUser ? currentUser.email : 'admin@negocio.com',
+                phone: '+57 1 234 5678',
+                address: 'Dirección no configurada',
+                pointValue: 1000,
+                mapsUrl: '',
+                description: '',
+                hours: {},
+                rating: 0.0,
+                ratingCount: 0,
+                createdAt: new Date().toISOString()
+            };
         }
 
         function populateBusinessForm() {
             if (!businessData) return;
             
-            // Header information
-            document.getElementById('business-name').textContent = businessData.name || 'Mi Negocio';
-            document.getElementById('business-category').textContent = businessData.category || 'Negocio';
-            document.getElementById('business-rating').textContent = businessData.rating || '0.0';
-            document.getElementById('rating-count').textContent = businessData.ratingCount || '0';
-            
-            if (businessData.image) {
-                document.getElementById('business-image').src = businessData.image;
+            try {
+                // Header information
+                const businessNameEl = document.getElementById('business-name');
+                const businessCategoryEl = document.getElementById('business-category');
+                const businessRatingEl = document.getElementById('business-rating');
+                const ratingCountEl = document.getElementById('rating-count');
+                
+                if (businessNameEl) businessNameEl.textContent = businessData.name || 'Mi Negocio';
+                if (businessCategoryEl) businessCategoryEl.textContent = businessData.category || 'Negocio';
+                if (businessRatingEl) businessRatingEl.textContent = businessData.rating || '0.0';
+                if (ratingCountEl) ratingCountEl.textContent = businessData.ratingCount || '0';
+                
+                const businessImageEl = document.getElementById('business-image');
+                if (businessImageEl && businessData.image) {
+                    businessImageEl.src = businessData.image;
+                }
+                
+                // Non-editable fields
+                const nameInputEl = document.getElementById('name-input');
+                const emailInputEl = document.getElementById('email-input');
+                const phoneInputEl = document.getElementById('phone-input');
+                const addressInputEl = document.getElementById('address-input');
+                
+                if (nameInputEl) nameInputEl.value = businessData.name || '';
+                if (emailInputEl) emailInputEl.value = businessData.email || '';
+                if (phoneInputEl) phoneInputEl.value = businessData.phone || '';
+                if (addressInputEl) addressInputEl.value = businessData.address || '';
+                
+                // Editable configuration
+                const pointValueEl = document.getElementById('point-value');
+                const mapsUrlEl = document.getElementById('maps-url');
+                const businessDescriptionEl = document.getElementById('business-description');
+                
+                if (pointValueEl) pointValueEl.value = businessData.pointValue || 1000;
+                if (mapsUrlEl) mapsUrlEl.value = businessData.mapsUrl || '';
+                if (businessDescriptionEl) businessDescriptionEl.value = businessData.description || '';
+                
+                // Business hours
+                if (businessData.hours) {
+                    populateBusinessHours(businessData.hours);
+                }
+                
+                // Store original configuration for reset
+                originalConfiguration = {
+                    pointValue: businessData.pointValue || 1000,
+                    mapsUrl: businessData.mapsUrl || '',
+                    description: businessData.description || '',
+                    hours: businessData.hours || {}
+                };
+                
+            } catch (error) {
+                console.error('Error populating business form:', error);
             }
-            
-            // Non-editable fields
-            document.getElementById('name-input').value = businessData.name || '';
-            document.getElementById('email-input').value = businessData.email || '';
-            document.getElementById('phone-input').value = businessData.phone || '';
-            document.getElementById('address-input').value = businessData.address || '';
-            
-            // Editable configuration
-            document.getElementById('point-value').value = businessData.pointValue || 1000;
-            document.getElementById('maps-url').value = businessData.mapsUrl || '';
-            document.getElementById('business-description').value = businessData.description || '';
-            
-            // Business hours
-            if (businessData.hours) {
-                populateBusinessHours(businessData.hours);
-            }
-            
-            // Store original configuration for reset
-            originalConfiguration = {
-                pointValue: businessData.pointValue || 1000,
-                mapsUrl: businessData.mapsUrl || '',
-                description: businessData.description || '',
-                hours: businessData.hours || {}
-            };
         }
 
         function populateBusinessHours(hours) {
@@ -384,13 +525,19 @@
             days.forEach(day => {
                 const dayData = hours[day];
                 if (dayData) {
-                    if (dayData.closed) {
-                        document.getElementById(`${day}-closed`).checked = true;
-                        document.getElementById(`${day}-open`).disabled = true;
-                        document.getElementById(`${day}-close`).disabled = true;
-                    } else {
-                        document.getElementById(`${day}-open`).value = dayData.open || '';
-                        document.getElementById(`${day}-close`).value = dayData.close || '';
+                    const closedEl = document.getElementById(`${day}-closed`);
+                    const openEl = document.getElementById(`${day}-open`);
+                    const closeEl = document.getElementById(`${day}-close`);
+                    
+                    if (closedEl && openEl && closeEl) {
+                        if (dayData.closed) {
+                            closedEl.checked = true;
+                            openEl.disabled = true;
+                            closeEl.disabled = true;
+                        } else {
+                            openEl.value = dayData.open || '';
+                            closeEl.value = dayData.close || '';
+                        }
                     }
                 }
             });
@@ -398,19 +545,25 @@
 
         async function loadBusinessStatistics() {
             try {
-                // [ESPACIO FIREBASE] - Load business statistics
-                const stats = await getBusinessStatistics(currentUser.uid);
+                if (!currentUser) return;
                 
-                document.getElementById('total-customers').textContent = stats.totalCustomers || '0';
-                document.getElementById('total-points-given').textContent = stats.totalPointsGiven || '0';
-                document.getElementById('total-redemptions').textContent = stats.totalRedemptions || '0';
+                const stats = await window.getBusinessStatistics(currentUser.uid);
                 
-                if (businessData.createdAt) {
+                const totalCustomersEl = document.getElementById('total-customers');
+                const totalPointsGivenEl = document.getElementById('total-points-given');
+                const totalRedemptionsEl = document.getElementById('total-redemptions');
+                const memberSinceEl = document.getElementById('member-since');
+                
+                if (totalCustomersEl) totalCustomersEl.textContent = stats.totalCustomers || '0';
+                if (totalPointsGivenEl) totalPointsGivenEl.textContent = stats.totalPointsGiven || '0';
+                if (totalRedemptionsEl) totalRedemptionsEl.textContent = stats.totalRedemptions || '0';
+                
+                if (memberSinceEl && businessData.createdAt) {
                     const memberSince = new Date(businessData.createdAt).toLocaleDateString('es-ES', {
                         year: 'numeric',
                         month: 'long'
                     });
-                    document.getElementById('member-since').textContent = memberSince;
+                    memberSinceEl.textContent = memberSince;
                 }
                 
             } catch (error) {
@@ -426,47 +579,68 @@
                 const openInput = document.getElementById(`${day}-open`);
                 const closeInput = document.getElementById(`${day}-close`);
                 
-                closedCheckbox.addEventListener('change', function() {
-                    openInput.disabled = this.checked;
-                    closeInput.disabled = this.checked;
-                    
-                    if (this.checked) {
-                        openInput.value = '';
-                        closeInput.value = '';
-                    }
-                });
+                if (closedCheckbox && openInput && closeInput) {
+                    closedCheckbox.addEventListener('change', function() {
+                        openInput.disabled = this.checked;
+                        closeInput.disabled = this.checked;
+                        
+                        if (this.checked) {
+                            openInput.value = '';
+                            closeInput.value = '';
+                        }
+                    });
+                }
             });
         }
 
         async function saveConfiguration() {
+            // Agregar confirmación antes de guardar
+            if (!confirm('¿Estás seguro de que quieres guardar los cambios?')) {
+                return; // Si el usuario cancela, salir de la función
+            }
+
             try {
+                if (!currentUser || !currentUser.uid) {
+                    throw new Error('Usuario no autenticado');
+                }
+
+                const pointValueEl = document.getElementById('point-value');
+                const mapsUrlEl = document.getElementById('maps-url');
+                const businessDescriptionEl = document.getElementById('business-description');
+
                 const configuration = {
-                    pointValue: parseInt(document.getElementById('point-value').value),
-                    mapsUrl: document.getElementById('maps-url').value.trim(),
-                    description: document.getElementById('business-description').value.trim(),
+                    pointValue: parseInt(pointValueEl ? pointValueEl.value : 1000),
+                    mapsUrl: mapsUrlEl ? mapsUrlEl.value.trim() : '',
+                    description: businessDescriptionEl ? businessDescriptionEl.value.trim() : '',
                     hours: getBusinessHours()
                 };
                 
                 // Validate configuration
                 if (configuration.pointValue < 1 || configuration.pointValue > 10000) {
-                    throw new Error(t('invalid_point_value'));
+                    throw new Error('El valor por punto debe estar entre 1 y 10,000');
                 }
                 
                 if (configuration.mapsUrl && !isValidUrl(configuration.mapsUrl)) {
-                    throw new Error(t('invalid_maps_url'));
+                    throw new Error('URL de Google Maps inválida');
                 }
                 
-                // [ESPACIO FIREBASE] - Update configuration
-                await actualizarConfiguracion(currentUser.uid, configuration);
+                console.log('💾 Guardando configuración:', configuration);
+                
+                // Usar la función global de firebase-config
+                if (window.actualizarConfiguracion) {
+                    await window.actualizarConfiguracion(currentUser.uid, configuration);
+                } else {
+                    throw new Error('Función actualizarConfiguracion no disponible');
+                }
                 
                 // Update original configuration
                 originalConfiguration = { ...configuration };
                 
-                showSuccess(t('configuration_saved'));
+                showSuccess('Configuración guardada exitosamente');
                 
             } catch (error) {
-                console.error('Error saving configuration:', error);
-                showError(error.message);
+                console.error('❌ Error guardando configuración:', error);
+                showError('Error al guardar configuración: ' + error.message);
             }
         }
 
@@ -475,42 +649,60 @@
             const hours = {};
             
             days.forEach(day => {
-                const closed = document.getElementById(`${day}-closed`).checked;
-                const open = document.getElementById(`${day}-open`).value;
-                const close = document.getElementById(`${day}-close`).value;
+                const closedEl = document.getElementById(`${day}-closed`);
+                const openEl = document.getElementById(`${day}-open`);
+                const closeEl = document.getElementById(`${day}-close`);
                 
-                hours[day] = {
-                    closed: closed,
-                    open: closed ? '' : open,
-                    close: closed ? '' : close
-                };
+                if (closedEl && openEl && closeEl) {
+                    const closed = closedEl.checked;
+                    const open = openEl.value;
+                    const close = closeEl.value;
+                    
+                    hours[day] = {
+                        closed: closed,
+                        open: closed ? '' : open,
+                        close: closed ? '' : close
+                    };
+                }
             });
             
             return hours;
         }
 
         function resetForm() {
+            // Agregar confirmación antes de restablecer
+            if (!confirm('¿Estás seguro de que quieres restablecer todos los cambios? Se perderán las modificaciones no guardadas.')) {
+                return; // Si el usuario cancela, salir de la función
+            }
+
             if (!originalConfiguration) return;
             
-            document.getElementById('point-value').value = originalConfiguration.pointValue;
-            document.getElementById('maps-url').value = originalConfiguration.mapsUrl;
-            document.getElementById('business-description').value = originalConfiguration.description;
+            const pointValueEl = document.getElementById('point-value');
+            const mapsUrlEl = document.getElementById('maps-url');
+            const businessDescriptionEl = document.getElementById('business-description');
+            
+            if (pointValueEl) pointValueEl.value = originalConfiguration.pointValue;
+            if (mapsUrlEl) mapsUrlEl.value = originalConfiguration.mapsUrl;
+            if (businessDescriptionEl) businessDescriptionEl.value = originalConfiguration.description;
             
             if (originalConfiguration.hours) {
                 populateBusinessHours(originalConfiguration.hours);
             }
+
+            showSuccess('Formulario restablecido exitosamente');
         }
 
         function testMapsUrl() {
-            const url = document.getElementById('maps-url').value.trim();
+            const mapsUrlEl = document.getElementById('maps-url');
+            const url = mapsUrlEl ? mapsUrlEl.value.trim() : '';
             
             if (!url) {
-                showError(t('enter_maps_url'));
+                showError('Por favor ingresa una URL de Google Maps');
                 return;
             }
             
             if (!isValidUrl(url)) {
-                showError(t('invalid_maps_url'));
+                showError('URL de Google Maps inválida');
                 return;
             }
             
@@ -518,21 +710,26 @@
         }
 
         function changeBusinessImage() {
-            document.getElementById('image-modal').style.display = 'block';
+            const modal = document.getElementById('image-modal');
+            if (modal) modal.style.display = 'block';
         }
 
         function closeImageModal() {
-            document.getElementById('image-modal').style.display = 'none';
+            const modal = document.getElementById('image-modal');
+            if (modal) modal.style.display = 'none';
         }
 
         function selectImageFromGallery() {
-            document.getElementById('file-input').click();
+            const fileInput = document.getElementById('file-input');
+            if (fileInput) fileInput.click();
         }
 
         function takePhoto() {
             const fileInput = document.getElementById('file-input');
-            fileInput.setAttribute('capture', 'camera');
-            fileInput.click();
+            if (fileInput) {
+                fileInput.setAttribute('capture', 'camera');
+                fileInput.click();
+            }
         }
 
         async function handleImageUpload(event) {
@@ -541,44 +738,62 @@
             
             // Validate file type
             if (!file.type.startsWith('image/')) {
-                showError(t('invalid_file_type'));
+                showError('Tipo de archivo inválido. Selecciona una imagen.');
                 return;
             }
             
             // Validate file size (max 5MB)
             if (file.size > 5 * 1024 * 1024) {
-                showError(t('file_too_large'));
+                showError('Archivo demasiado grande. Máximo 5MB.');
                 return;
             }
             
             try {
-                // [ESPACIO FIREBASE STORAGE] - Upload image
-                const imageUrl = await uploadBusinessImage(currentUser.uid, file);
+                if (!currentUser || !currentUser.uid) {
+                    throw new Error('Usuario no autenticado');
+                }
+
+                console.log('🖼️ Subiendo imagen...');
                 
-                // Update business image
-                document.getElementById('business-image').src = imageUrl;
+                // Usar la función global de firebase-config
+                let imageUrl;
+                if (window.uploadBusinessImage) {
+                    imageUrl = await window.uploadBusinessImage(currentUser.uid, file);
+                } else {
+                    throw new Error('Función uploadBusinessImage no disponible');
+                }
                 
-                // Update business data
-                await actualizarConfiguracion(currentUser.uid, { image: imageUrl });
+                const businessImageEl = document.getElementById('business-image');
+                if (businessImageEl) businessImageEl.src = imageUrl;
+                
+                // Actualizar la configuración con la nueva imagen
+                if (window.actualizarConfiguracion) {
+                    await window.actualizarConfiguracion(currentUser.uid, { image: imageUrl });
+                }
                 
                 closeImageModal();
-                showSuccess(t('image_updated'));
+                showSuccess('Imagen actualizada exitosamente');
                 
             } catch (error) {
-                console.error('Error uploading image:', error);
-                showError(error.message);
+                console.error('❌ Error subiendo imagen:', error);
+                showError('Error al subir imagen: ' + error.message);
             }
         }
 
         async function logout() {
-            if (confirm(t('confirm_logout'))) {
+            // Confirmación mejorada para cerrar sesión
+            if (confirm('¿Estás seguro de que quieres cerrar sesión?\n\nSe perderán los cambios no guardados.')) {
                 try {
-                    // [ESPACIO FIREBASE AUTH] - Sign out user
-                    await signOut();
-                    window.location.href = '../index.html';
+                    if (window.auth) {
+                        await window.auth.signOut();
+                        console.log('✅ Sesión cerrada exitosamente');
+                        window.location.href = '../index.html';
+                    } else {
+                        throw new Error('Firebase Auth no disponible');
+                    }
                 } catch (error) {
-                    console.error('Error signing out:', error);
-                    showError(error.message);
+                    console.error('❌ Error cerrando sesión:', error);
+                    showError('Error al cerrar sesión: ' + error.message);
                 }
             }
         }
@@ -593,65 +808,28 @@
         }
 
         function showError(message) {
-            alert(message);
+            alert('Error: ' + message);
+            console.error(message);
         }
 
         function showSuccess(message) {
-            alert(message);
+            alert('Éxito: ' + message);
+            console.log(message);
         }
 
-        function getCurrentUser() {
-            // [ESPACIO FIREBASE AUTH] - Get current authenticated user
-            return null;
-        }
-
-        // [ESPACIO FIREBASE] - Firebase functions to implement
-        async function cargarDatosNegocio(businessId) {
-            // Load business data from Firestore
-            console.log('Loading business data for:', businessId);
-            
-            return {
-                name: 'Mi Negocio',
-                category: 'Restaurante',
-                email: 'admin@negocio.com',
-                phone: '+57 1 234 5678',
-                address: 'Calle 123 #45-67, Bogotá, Colombia',
-                pointValue: 1000,
-                mapsUrl: '',
-                description: '',
-                hours: {},
-                rating: 4.5,
-                ratingCount: 120,
-                createdAt: new Date().toISOString()
-            };
-        }
-
-        async function getBusinessStatistics(businessId) {
-            // Get business statistics from Firestore
-            console.log('Loading business statistics for:', businessId);
-            
-            return {
-                totalCustomers: 0,
-                totalPointsGiven: 0,
-                totalRedemptions: 0
-            };
-        }
-
-        async function actualizarConfiguracion(businessId, configuration) {
-            // Update business configuration in Firestore
-            console.log('Updating business configuration:', businessId, configuration);
-        }
-
-        async function uploadBusinessImage(businessId, file) {
-            // Upload business image to Firebase Storage
-            console.log('Uploading business image for:', businessId);
-            return '../images/default-business.svg';
-        }
-
-        async function signOut() {
-            // Sign out user from Firebase Auth
-            console.log('Signing out user');
-        }
+        // Eliminar las funciones Firebase duplicadas - ahora están en firebase-config.js
+        
+        // Manejo de errores global
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            console.error('❌ Error global:', {
+                message: msg,
+                source: url,
+                line: lineNo,
+                column: columnNo,
+                error: error
+            });
+            return false;
+        };
 
         // Close modal when clicking outside
         window.onclick = function(event) {

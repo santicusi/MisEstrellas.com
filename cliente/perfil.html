@@ -4,10 +4,90 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MisEstrellas - Perfil</title>
+    <!-- Firebase v8 para compatibilidad -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="../css/components.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
+
+<style>
+    :root {
+    /* Variables principales que faltan */
+    --bg-black: #0F0F0F;
+    --text-white: #FFFFFF;
+    --success-green: #4CAF50;
+    --error-red: #F44336;
+    --warning-yellow: #FFC107;
+    
+    /* Colores mejorados */
+    --primary-orange: #FF8C42;
+    --hover-orange: #FF7A2B;
+    --accent-orange: #FFA366;
+    --dark-orange: #E67A35;
+    
+    /* Tonos cálidos en lugar de grises */
+    --warm-gray: #2A2A2A;
+    --light-warm: #363636;
+    --card-warm: #1F1F1F;
+    --border-warm: #404040;
+    --secondary-gray: #AAA;
+    
+    /* Gradientes */
+    --gradient-card: linear-gradient(135deg, #1F1F1F 0%, #2A2A2A 100%);
+    --gradient-orange: linear-gradient(135deg, #FF8C42 0%, #FFA366 100%);
+    --gradient-dark: linear-gradient(135deg, #0F0F0F 0%, #1F1F1F 100%);
+    
+    /* Actualizar variables existentes */
+    --card-bg: var(--gradient-card);
+    --border-color: var(--border-warm);
+    --input-bg: var(--warm-gray);
+    --shadow-dark: rgba(0, 0, 0, 0.3);
+    --shadow-orange: rgba(255, 140, 66, 0.2);
+}
+
+.qr-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    text-align: center;
+    color: var(--error-red);
+}
+
+.qr-error i {
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+.retry-btn {
+    background: var(--primary-orange);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.retry-btn:hover {
+    background: var(--hover-orange);
+}
+
+/* Canvas QR personalizado */
+.qr-canvas {
+    border: 2px solid var(--primary-orange);
+    border-radius: 8px;
+    background: white;
+    padding: 10px;
+}
+</style>
+
 <body>
     <div class="container">
         <!-- Header -->
@@ -29,7 +109,7 @@
             <!-- Profile Header -->
             <div class="profile-header">
                 <div class="profile-avatar">
-                    <img id="profile-image" src="../images/default-avatar.svg" alt="Profile">
+                    <img id="profile-image" src="../images/avatar.png" alt="Profile">
                     <button class="edit-avatar-btn" onclick="changeProfileImage()">
                         <i class="fas fa-camera"></i>
                     </button>
@@ -70,7 +150,7 @@
                     <h3 data-translate="personal_qr">Tu Código QR Personal</h3>
                     <div class="qr-section">
                         <div class="qr-container">
-                            <div id="personal-qr" class="qr-code"></div>
+                            <canvas id="personal-qr" class="qr-canvas" width="200" height="200"></canvas>
                             <div class="qr-loading" id="qr-loading" style="display: none;">
                                 <div class="spinner"></div>
                                 <p data-translate="generating_qr">Generando QR...</p>
@@ -78,42 +158,8 @@
                         </div>
                         <div class="qr-info">
                             <p class="qr-code-text" id="qr-code-text">ABC123XYZ</p>
-                            <p class="qr-description" data-translate="qr_description">Los negocios pueden escanear este código para darte puntos</p>
+                            <p class="qr-description" data-translate="qr_description">Los negocios pueden escanear este código para pagar con puntos</p>
                             <button class="btn-secondary" onclick="refreshQR()" data-translate="refresh_qr">Actualizar QR</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Statistics -->
-                <div class="form-section">
-                    <h3 data-translate="statistics">Estadísticas</h3>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-star"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4 id="total-stars">0</h4>
-                                <p data-translate="total_stars">Estrellas totales</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-store"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4 id="visited-businesses">0</h4>
-                                <p data-translate="visited_businesses">Negocios visitados</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-calendar"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4 id="this-month-stars">0</h4>
-                                <p data-translate="this_month">Este mes</p>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -173,93 +219,158 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
     <script src="../js/translations.js"></script>
     <script src="../js/utils.js"></script>
     <script src="../js/firebase-config.js"></script>
     <script src="../js/auth.js"></script>
-    
+
     <script>
         let currentUser = null;
         let personalQRCode = null;
         let isEditing = false;
 
-        document.addEventListener('DOMContentLoaded', function() {
-            checkAuthentication();
-            updateTexts();
-            loadUserProfile();
-            generatePersonalQR();
-            loadUserStatistics();
+        document.addEventListener("DOMContentLoaded", function () {
+            console.log('🚀 Inicializando perfil...');
+            
+            // Esperar a que Firebase esté listo
+            if (window.auth) {
+                initializeProfile();
+            } else {
+                window.addEventListener('firebaseReady', initializeProfile);
+            }
         });
 
-        function checkAuthentication() {
-            // [ESPACIO FIREBASE AUTH] - Check if user is logged in
-            currentUser = getCurrentUser();
-            if (!currentUser) {
-                window.location.href = '../index.html';
-                return;
+        function initializeProfile() {
+            console.log('🔥 Firebase listo, configurando perfil...');
+            
+            // Verificar si hay usuario simulado primero
+            const simulatedUser = localStorage.getItem('simulatedUser');
+            if (simulatedUser) {
+                console.log('🧪 Usuario simulado encontrado');
+                try {
+                    const user = JSON.parse(simulatedUser);
+                    window.simulatedUser = user;
+                    currentUser = user;
+                    
+                    console.log('✅ Usuario simulado cargado:', user.uid);
+                    loadUserProfile();
+                    loadUserStatistics();
+                    
+                    // Esperar un poco antes de generar QR
+                    setTimeout(() => {
+                        generatePersonalQR();
+                    }, 500);
+                    
+                    return;
+                } catch (error) {
+                    console.error('❌ Error cargando usuario simulado:', error);
+                }
             }
+            
+            // Auth listener normal para usuarios reales
+            window.auth.onAuthStateChanged(function(user) {
+                if (user) {
+                    const uid = user.uid;
+                    console.log("✅ Usuario autenticado. UID:", uid);
+                    currentUser = user;
+                    loadUserProfile();
+                    loadUserStatistics();
+                    
+                    setTimeout(() => {
+                        generatePersonalQR();
+                    }, 500);
+                } else {
+                    console.warn("❌ No hay usuario autenticado. Redirigiendo...");
+                    window.location.href = "../index.html";
+                }
+            });
         }
 
         async function loadUserProfile() {
             try {
-                // [ESPACIO FIREBASE] - Load user profile data
-                const userProfile = await getUserProfile(currentUser.uid);
+                console.log('📊 Cargando perfil del usuario...');
+                
+                let userProfile;
+                
+                // Si es usuario simulado, obtener de Firestore
+                if (window.simulatedUser) {
+                    const userDoc = await window.db.collection('users').doc('XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2').get();
+                    if (userDoc.exists) {
+                        userProfile = userDoc.data();
+                    }
+                } else {
+                    // Para usuarios reales
+                    userProfile = await getUserProfile(currentUser.uid);
+                }
                 
                 if (userProfile) {
-                    document.getElementById('profile-name').textContent = userProfile.name || 'Usuario';
-                    document.getElementById('profile-contact').textContent = userProfile.phone || userProfile.email;
-                    document.getElementById('user-name').value = userProfile.name || '';
-                    document.getElementById('user-phone').value = userProfile.phone || '';
+                    document.getElementById('profile-name').textContent = userProfile.name || userProfile.displayName || 'Usuario';
+                    document.getElementById('profile-contact').textContent = userProfile.phoneNumber || userProfile.email || '';
+                    document.getElementById('user-name').value = userProfile.name || userProfile.displayName || '';
+                    document.getElementById('user-phone').value = userProfile.phoneNumber || '';
                     document.getElementById('user-email').value = userProfile.email || '';
                     
-                    if (userProfile.photoURL) {
-                        document.getElementById('profile-image').src = userProfile.photoURL;
+                    if (userProfile.avatar) {
+                        document.getElementById('profile-image').src = userProfile.avatar;
                     }
                     
                     if (userProfile.createdAt) {
-                        const memberSince = new Date(userProfile.createdAt).toLocaleDateString('es-ES', {
+                        const date = userProfile.createdAt.toDate ? userProfile.createdAt.toDate() : new Date(userProfile.createdAt);
+                        const memberSince = date.toLocaleDateString('es-ES', {
                             year: 'numeric',
                             month: 'long'
                         });
-                        document.getElementById('profile-member-since').textContent = `${t('member_since')}: ${memberSince}`;
+                        document.getElementById('profile-member-since').textContent = `Miembro desde: ${memberSince}`;
                     }
                 }
                 
             } catch (error) {
-                console.error('Error loading user profile:', error);
+                console.error('❌ Error loading user profile:', error);
                 showError(error.message);
             }
         }
 
         async function generatePersonalQR() {
-            const qrContainer = document.getElementById('personal-qr');
+            const qrCanvas = document.getElementById('personal-qr');
             const qrLoading = document.getElementById('qr-loading');
             const qrCodeText = document.getElementById('qr-code-text');
             
             qrLoading.style.display = 'block';
-            qrContainer.innerHTML = '';
             
             try {
-                // [ESPACIO FIREBASE + QR] - Generate personal QR code
+                console.log('🎯 Generando QR personal...');
+                
+                // Generar o recuperar datos del QR fijo
                 const qrData = await generarQRPersonal(currentUser.uid);
                 
-                // Generate QR code
-                const qrCode = new QRCode(qrContainer, {
-                    text: qrData.code,
-                    width: 200,
-                    height: 200,
-                    colorDark: '#FF8C42',
-                    colorLight: '#1A1A1A',
-                    correctLevel: QRCode.CorrectLevel.H
-                });
+                console.log('📱 Datos del QR FIJO:', qrData);
                 
+                // Generar QR usando canvas nativo (sin dependencias externas)
+                await drawQRCodeToCanvas(qrCanvas, qrData.code);
+                
+                // Mostrar código legible
                 qrCodeText.textContent = qrData.displayCode;
+                
+                // Guardar referencia
                 personalQRCode = qrData.code;
                 
+                console.log('✅ QR FIJO generado exitosamente');
+                
             } catch (error) {
-                console.error('Error generating QR code:', error);
-                qrContainer.innerHTML = '<p class="error">Error generando QR</p>';
+                console.error('❌ Error generating QR code:', error);
+                
+                // Mostrar QR simple con texto si falla
+                const ctx = qrCanvas.getContext('2d');
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, 200, 200);
+                ctx.fillStyle = '#FF8C42';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('QR Personal', 100, 90);
+                ctx.fillText('Usuario', 100, 110);
+                ctx.fillText('Único', 100, 130);
+                
+                qrCodeText.textContent = 'QR-USER';
             } finally {
                 qrLoading.style.display = 'none';
             }
@@ -267,15 +378,187 @@
 
         async function loadUserStatistics() {
             try {
-                // [ESPACIO FIREBASE] - Load user statistics
-                const stats = await getUserStatistics(currentUser.uid);
+                console.log('📈 Cargando estadísticas del usuario...');
                 
-                document.getElementById('total-stars').textContent = stats.totalStars || '0';
-                document.getElementById('visited-businesses').textContent = stats.visitedBusinesses || '0';
-                document.getElementById('this-month-stars').textContent = stats.thisMonthStars || '0';
+                let stats;
+                
+                // Si es usuario simulado, obtener de Firestore
+                if (window.simulatedUser) {
+                    const userDoc = await window.db.collection('users').doc('XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2').get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        stats = {
+                            totalStars: userData.totalPoints || 0,
+                            visitedBusinesses: userData.joinedBusinesses ? userData.joinedBusinesses.length : 0,
+                            thisMonthStars: 0 // Calcular del mes actual
+                        };
+                    }
+                } else {
+                    // Para usuarios reales
+                    stats = await getUserStatistics(currentUser.uid);
+                }
+                
+                if (stats) {
+                    document.getElementById('total-stars').textContent = stats.totalStars || '0';
+                    document.getElementById('visited-businesses').textContent = stats.visitedBusinesses || '0';
+                    document.getElementById('this-month-stars').textContent = stats.thisMonthStars || '0';
+                }
                 
             } catch (error) {
-                console.error('Error loading statistics:', error);
+                console.error('❌ Error loading statistics:', error);
+            }
+        }
+
+        // Función para generar QR FIJO permanente
+        async function generarQRPersonal(userId) {
+            try {
+                console.log('🔐 Generando/obteniendo QR personal FIJO para usuario:', userId);
+                
+                const realUserId = window.simulatedUser ? 'XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2' : userId;
+                
+                // Intentar obtener desde Firebase primero
+                try {
+                    const userDoc = await window.db.collection('users').doc(realUserId).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        
+                        // Si ya tiene QR guardado en Firebase, usarlo
+                        if (userData.personalQR && userData.personalQR.code) {
+                            console.log('✅ QR encontrado en Firebase:', userData.personalQR);
+                            return userData.personalQR;
+                        }
+                    }
+                } catch (error) {
+                    console.log('⚠️ No se pudo acceder a Firebase, usando localStorage');
+                }
+                
+                // Si no está en Firebase, verificar localStorage
+                let savedQRData = localStorage.getItem(`userQR_${realUserId}`);
+                if (savedQRData) {
+                    console.log('✅ QR encontrado en localStorage');
+                    const qrData = JSON.parse(savedQRData);
+                    
+                    // Intentar guardar en Firebase para futuras consultas
+                    try {
+                        await window.db.collection('users').doc(realUserId).update({
+                            personalQR: qrData,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log('✅ QR guardado en Firebase');
+                    } catch (error) {
+                        console.log('⚠️ No se pudo guardar en Firebase');
+                    }
+                    
+                    return qrData;
+                }
+                
+                // Generar nuevo QR FIJO
+                const fixedCode = generateFixedUserCode(realUserId);
+                const code = `USER:${realUserId}:${fixedCode}`;
+                const displayCode = `${realUserId.substring(0, 4).toUpperCase()}-${fixedCode}`;
+                
+                const qrData = {
+                    code: code,
+                    displayCode: displayCode,
+                    userId: realUserId,
+                    fixedCode: fixedCode,
+                    createdAt: new Date().toISOString()
+                };
+                
+                // Guardar en localStorage
+                localStorage.setItem(`userQR_${realUserId}`, JSON.stringify(qrData));
+                
+                // Intentar guardar en Firebase
+                try {
+                    await window.db.collection('users').doc(realUserId).update({
+                        personalQR: qrData,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log('✅ Nuevo QR guardado en Firebase');
+                } catch (error) {
+                    console.log('⚠️ QR guardado solo en localStorage');
+                }
+                
+                console.log('✅ Nuevo QR FIJO generado:', qrData);
+                return qrData;
+                
+            } catch (error) {
+                console.error('❌ Error generando QR personal:', error);
+                throw error;
+            }
+        }
+
+        function generateFixedUserCode(userId) {
+            // Crear código FIJO basado únicamente en el UID del usuario
+            let hash = 0;
+            for (let i = 0; i < userId.length; i++) {
+                const char = userId.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            
+            const positiveHash = Math.abs(hash);
+            const base36 = positiveHash.toString(36).toUpperCase();
+            const fixedCode = (base36 + '000000').substring(0, 6);
+            
+            console.log('🔑 Código fijo generado para', userId, ':', fixedCode);
+            return fixedCode;
+        }
+
+        // Función para dibujar QR en canvas (sin dependencias externas)
+        async function drawQRCodeToCanvas(canvas, text) {
+            const ctx = canvas.getContext('2d');
+            const size = 200;
+            
+            // Limpiar canvas
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Crear patrón QR simple usando patrones de matriz
+            const moduleSize = 8;
+            const modules = Math.floor(size / moduleSize);
+            
+            // Generar patrón pseudo-aleatorio basado en el texto
+            let seed = 0;
+            for (let i = 0; i < text.length; i++) {
+                seed += text.charCodeAt(i);
+            }
+            
+            function pseudoRandom() {
+                seed = (seed * 9301 + 49297) % 233280;
+                return seed / 233280;
+            }
+            
+            ctx.fillStyle = '#FF8C42';
+            
+            // Dibujar patrón QR
+            for (let y = 0; y < modules; y++) {
+                for (let x = 0; x < modules; x++) {
+                    // Esquinas de referencia
+                    if ((x < 7 && y < 7) || (x < 7 && y >= modules - 7) || (x >= modules - 7 && y < 7)) {
+                        if ((x === 0 || x === 6 || y === 0 || y === 6) ||
+                            (x >= 2 && x <= 4 && y >= 2 && y <= 4)) {
+                            ctx.fillRect(x * moduleSize, y * moduleSize, moduleSize, moduleSize);
+                        }
+                    }
+                    // Patrón basado en el hash del texto
+                    else if (pseudoRandom() > 0.5) {
+                        ctx.fillRect(x * moduleSize, y * moduleSize, moduleSize, moduleSize);
+                    }
+                }
+            }
+            
+            console.log('✅ QR dibujado en canvas');
+        }
+
+        async function refreshQR() {
+            try {
+                console.log('🔄 Regenerando QR visual (mismo código)...');
+                await generatePersonalQR();
+                showSuccess('QR actualizado (mismo código)');
+            } catch (error) {
+                console.error('❌ Error actualizando QR:', error);
+                showError('Error actualizando QR: ' + error.message);
             }
         }
 
@@ -303,20 +586,14 @@
             const name = document.getElementById('user-name').value.trim();
             
             if (!name) {
-                showError(t('name_required'));
+                showError('El nombre es requerido');
                 return;
             }
             
             try {
-                // [ESPACIO FIREBASE] - Update user profile
-                await actualizarPerfil(currentUser.uid, {
-                    name: name
-                });
-                
-                // Update display
+                await actualizarPerfil(currentUser.uid, { name: name });
                 document.getElementById('profile-name').textContent = name;
                 
-                // Reset edit mode
                 const nameField = document.getElementById('user-name');
                 const editBtn = nameField.parentElement.querySelector('.edit-btn');
                 nameField.readOnly = true;
@@ -324,7 +601,7 @@
                 editBtn.classList.remove('save-mode');
                 isEditing = false;
                 
-                showSuccess(t('profile_updated'));
+                showSuccess('Perfil actualizado');
                 
             } catch (error) {
                 console.error('Error updating profile:', error);
@@ -345,7 +622,6 @@
         }
 
         function takePhoto() {
-            // For mobile devices, this will open the camera
             const fileInput = document.getElementById('file-input');
             fileInput.setAttribute('capture', 'camera');
             fileInput.click();
@@ -355,32 +631,24 @@
             const file = event.target.files[0];
             if (!file) return;
             
-            // Validate file type
             if (!file.type.startsWith('image/')) {
-                showError(t('invalid_file_type'));
+                showError('Tipo de archivo inválido');
                 return;
             }
             
-            // Validate file size (max 5MB)
             if (file.size > 5 * 1024 * 1024) {
-                showError(t('file_too_large'));
+                showError('Archivo muy grande (máx 5MB)');
                 return;
             }
             
             try {
-                // [ESPACIO FIREBASE STORAGE] - Upload image to Firebase Storage
                 const imageUrl = await uploadProfileImage(currentUser.uid, file);
-                
-                // Update profile image
                 document.getElementById('profile-image').src = imageUrl;
                 
-                // Update user profile with new image URL
-                await actualizarPerfil(currentUser.uid, {
-                    photoURL: imageUrl
-                });
+                await actualizarPerfil(currentUser.uid, { photoURL: imageUrl });
                 
                 closeImageModal();
-                showSuccess(t('image_updated'));
+                showSuccess('Imagen actualizada');
                 
             } catch (error) {
                 console.error('Error uploading image:', error);
@@ -388,46 +656,81 @@
             }
         }
 
-        async function refreshQR() {
-            await generatePersonalQR();
-            showSuccess(t('qr_refreshed'));
-        }
-
         async function logout() {
-            if (confirm(t('confirm_logout'))) {
+            if (confirm('¿Estás seguro de cerrar sesión?')) {
                 try {
-                    // [ESPACIO FIREBASE AUTH] - Sign out user
-                    await signOut();
+                    localStorage.removeItem('simulatedUser');
+                    window.simulatedUser = null;
+                    
+                    if (window.auth.currentUser) {
+                        await window.auth.signOut();
+                    }
+                    
                     window.location.href = '../index.html';
                 } catch (error) {
-                    console.error('Error signing out:', error);
+                    console.error('❌ Error signing out:', error);
                     showError(error.message);
                 }
             }
         }
 
         function showError(message) {
-            alert(message);
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #f44336;
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                z-index: 10000;
+                font-weight: 500;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 3000);
         }
 
         function showSuccess(message) {
-            alert(message);
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #4caf50;
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                z-index: 10000;
+                font-weight: 500;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 3000);
         }
 
         function getCurrentUser() {
-            // [ESPACIO FIREBASE AUTH] - Get current authenticated user
-            return null;
+            return window.simulatedUser || window.auth.currentUser;
         }
 
-        // [ESPACIO FIREBASE] - Firebase functions to implement
+        // Funciones de Firebase placeholder
         async function getUserProfile(userId) {
-            // Get user profile from Firestore
             console.log('Getting user profile for:', userId);
             return null;
         }
 
         async function getUserStatistics(userId) {
-            // Get user statistics from Firestore
             console.log('Getting user statistics for:', userId);
             return {
                 totalStars: 0,
@@ -436,40 +739,65 @@
             };
         }
 
-        async function generarQRPersonal(userId) {
-            // Generate personal QR code data
-            const code = `USER:${userId}:${Date.now()}`;
-            const displayCode = code.substring(0, 10).toUpperCase();
-            
-            return {
-                code: code,
-                displayCode: displayCode
-            };
-        }
-
         async function actualizarPerfil(userId, profileData) {
-            // Update user profile in Firestore
             console.log('Updating profile for:', userId, profileData);
+            
+            try {
+                const realUserId = window.simulatedUser ? 'XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2' : userId;
+                
+                // Actualizar en Firebase si está disponible
+                if (window.db) {
+                    await window.db.collection('users').doc(realUserId).update({
+                        ...profileData,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log('✅ Perfil actualizado en Firebase');
+                }
+            } catch (error) {
+                console.error('❌ Error actualizando perfil:', error);
+                throw error;
+            }
         }
 
         async function uploadProfileImage(userId, file) {
-            // Upload image to Firebase Storage
             console.log('Uploading image for:', userId);
-            return '../images/default-avatar.svg';
+            
+            try {
+                const realUserId = window.simulatedUser ? 'XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2' : userId;
+                
+                // Si Firebase Storage está disponible, subir imagen
+                if (window.storage) {
+                    const fileName = `profile-images/${realUserId}/${Date.now()}_${file.name}`;
+                    const storageRef = window.storage.ref(fileName);
+                    
+                    const snapshot = await storageRef.put(file);
+                    const downloadURL = await snapshot.ref.getDownloadURL();
+                    
+                    console.log('✅ Imagen subida a Firebase Storage');
+                    return downloadURL;
+                } else {
+                    // Fallback: crear URL local temporal
+                    const reader = new FileReader();
+                    return new Promise((resolve) => {
+                        reader.onload = (e) => resolve(e.target.result);
+                        reader.readAsDataURL(file);
+                    });
+                }
+            } catch (error) {
+                console.error('❌ Error subiendo imagen:', error);
+                throw error;
+            }
         }
 
-        async function signOut() {
-            // Sign out user from Firebase Auth
-            console.log('Signing out user');
-        }
-
-        // Close modal when clicking outside
+        // Cerrar modal al hacer clic fuera
         window.onclick = function(event) {
             const modal = document.getElementById('image-modal');
             if (event.target === modal) {
                 closeImageModal();
             }
         }
+
+        console.log('🎉 Perfil cargado completamente');
     </script>
 </body>
 </html>

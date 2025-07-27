@@ -3,19 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MisEstrellas - Dashboard</title>
+    <title>MisEstrellas - Dashboard DEBUG</title>
+    <!-- Firebase v8 para compatibilidad -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="../css/components.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
+
+<style>
+    :root {
+    /* Variables principales que faltan */
+    --bg-black: #0F0F0F;
+    --text-white: #FFFFFF;
+    --success-green: #4CAF50;
+    --error-red: #F44336;
+    --warning-yellow: #FFC107;
+    
+    /* Colores mejorados */
+    --primary-orange: #FF8C42;
+    --hover-orange: #FF7A2B;
+    --accent-orange: #FFA366;
+    --dark-orange: #E67A35;
+    
+    /* Tonos cálidos en lugar de grises */
+    --warm-gray: #2A2A2A;
+    --light-warm: #363636;
+    --card-warm: #1F1F1F;
+    --border-warm: #404040;
+    --secondary-gray: #AAA;
+    
+    /* Gradientes */
+    --gradient-card: linear-gradient(135deg, #1F1F1F 0%, #2A2A2A 100%);
+    --gradient-orange: linear-gradient(135deg, #FF8C42 0%, #FFA366 100%);
+    --gradient-dark: linear-gradient(135deg, #0F0F0F 0%, #1F1F1F 100%);
+    
+    /* Actualizar variables existentes */
+    --card-bg: var(--gradient-card);
+    --border-color: var(--border-warm);
+    --input-bg: var(--warm-gray);
+    --shadow-dark: rgba(0, 0, 0, 0.3);
+    --shadow-orange: rgba(255, 140, 66, 0.2);
+}
+</style>
 <body>
     <div class="container">
         <!-- Header -->
         <header class="header">
             <div class="header-content">
-                <img src="../images/logo.svg" alt="MisEstrellas" class="header-logo">
+                <img src="../images/logo.png" alt="MisEstrellas" class="header-logo">
                 <div class="user-info">
-                    <span class="user-name" id="user-name" data-translate="welcome">Bienvenido</span>
+                    <span class="user-name" id="user-name">Cargando...</span>
                     <div class="language-toggle">
                         <button class="lang-btn" onclick="changeLanguage('es')" id="lang-es">ES</button>
                         <button class="lang-btn" onclick="changeLanguage('en')" id="lang-en">EN</button>
@@ -27,10 +69,41 @@
         <!-- Main Content -->
         <main class="main-content">
             <div class="dashboard-header">
-                <h1 data-translate="my_stars">Mis Estrellas</h1>
+                <h1>Mis Estrellas</h1>
                 <div class="total-stars">
                     <i class="fas fa-star"></i>
                     <span id="total-stars">0</span>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="quick-stats">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-store"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h4 id="total-businesses">0</h4>
+                        <p>Negocios visitados</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h4 id="total-visits">0</h4>
+                        <p>Visitas totales</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-gift"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h4 id="total-redemptions">0</h4>
+                        <p>Canjes realizados</p>
+                    </div>
                 </div>
             </div>
 
@@ -41,16 +114,21 @@
 
             <!-- Empty State -->
             <div class="empty-state" id="empty-state" style="display: none;">
-                <i class="fas fa-star-o"></i>
-                <h3 data-translate="no_stars">No tienes estrellas</h3>
-                <p data-translate="start_collecting">Comienza a coleccionar estrellas visitando nuestros negocios asociados</p>
-                <button class="btn-primary" onclick="goToMap()" data-translate="find_businesses">Encontrar Negocios</button>
+                <div class="empty-icon">
+                    <i class="fas fa-star"></i>
+                </div>
+                <h3>No tienes estrellas</h3>
+                <p>Comienza a coleccionar estrellas visitando nuestros negocios asociados</p>
+                <div class="empty-actions">
+                    <button class="btn-primary" onclick="goToScanner()">Escanear QR</button>
+                    <button class="btn-secondary" onclick="goToMap()">Encontrar Negocios</button>
+                </div>
             </div>
 
             <!-- Loading -->
             <div class="loading" id="loading">
                 <div class="spinner"></div>
-                <p data-translate="loading">Cargando...</p>
+                <p>Cargando...</p>
             </div>
         </main>
 
@@ -58,52 +136,21 @@
         <nav class="bottom-nav">
             <a href="dashboard.html" class="nav-item active">
                 <i class="fas fa-home"></i>
-                <span data-translate="dashboard">Dashboard</span>
+                <span>Dashboard</span>
             </a>
             <a href="escanear-qr.html" class="nav-item">
                 <i class="fas fa-qrcode"></i>
-                <span data-translate="scan_qr">Escanear QR</span>
+                <span>Escanear QR</span>
             </a>
             <a href="mapa.html" class="nav-item">
                 <i class="fas fa-map"></i>
-                <span data-translate="map">Mapa</span>
+                <span>Mapa</span>
             </a>
             <a href="perfil.html" class="nav-item">
                 <i class="fas fa-user"></i>
-                <span data-translate="profile">Perfil</span>
+                <span>Perfil</span>
             </a>
         </nav>
-    </div>
-
-    <!-- Business Detail Modal -->
-    <div class="modal" id="business-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modal-business-name">Negocio</h2>
-                <button class="close-btn" onclick="closeModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="business-info">
-                    <div class="business-image">
-                        <img id="modal-business-image" src="" alt="Business">
-                    </div>
-                    <div class="business-details">
-                        <p class="business-address" id="modal-business-address"></p>
-                        <p class="business-stars">
-                            <i class="fas fa-star"></i>
-                            <span id="modal-business-stars">0</span>
-                            <span data-translate="stars">estrellas</span>
-                        </p>
-                    </div>
-                </div>
-                <div class="transaction-history">
-                    <h3 data-translate="transaction_history">Historial de Transacciones</h3>
-                    <div class="history-list" id="transaction-history">
-                        <!-- History items will be populated by JavaScript -->
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Scripts -->
@@ -113,137 +160,415 @@
     <script src="../js/auth.js"></script>
     
     <script>
-        let userBusinesses = [];
-        let currentUser = null;
-
-        document.addEventListener('DOMContentLoaded', function() {
-            checkAuthentication();
-            updateTexts();
-            loadUserData();
-        });
-
-        function checkAuthentication() {
-            // [ESPACIO FIREBASE AUTH] - Check if user is logged in
-            // If not authenticated, redirect to login
-            currentUser = getCurrentUser();
-            if (!currentUser) {
-                window.location.href = '../index.html';
-                return;
+        // Debug utilities
+        let debugLog = [];
+        
+        function addDebugLog(message) {
+            debugLog.push(`${new Date().toLocaleTimeString()}: ${message}`);
+            const logElement = document.getElementById('debug-log');
+            if (logElement) {
+                logElement.innerHTML = debugLog.slice(-10).join('<br>');
+                logElement.scrollTop = logElement.scrollHeight;
             }
-            
-            // Update user name in header
-            document.getElementById('user-name').textContent = currentUser.displayName || currentUser.email || currentUser.phoneNumber;
+            console.log('🐛 DEBUG:', message);
         }
 
-        async function loadUserData() {
-            const loading = document.getElementById('loading');
-            const businessCards = document.getElementById('business-cards');
-            const emptyState = document.getElementById('empty-state');
+        function updateDebugStatus(element, status, color = '#00ff00') {
+            const el = document.getElementById(element);
+            if (el) {
+                el.textContent = status;
+                el.style.color = color;
+            }
+        }
+
+        let currentUser = null;
+        let userBusinesses = [];
+        let userStats = {
+            totalBusinesses: 0,
+            totalVisits: 0,
+            totalRedemptions: 0,
+            totalStars: 0
+        };
+
+        // Función para esperar autenticación
+        function waitForAuth() {
+            return new Promise((resolve) => {
+                if (!window.auth) {
+                    resolve(null);
+                    return;
+                }
+
+                // Si ya hay usuario, resolverlo inmediatamente
+                if (window.auth.currentUser) {
+                    resolve(window.auth.currentUser);
+                    return;
+                }
+
+                // Esperar cambio de estado
+                const unsubscribe = window.auth.onAuthStateChanged((user) => {
+                    unsubscribe();
+                    resolve(user);
+                });
+
+                // Timeout después de 5 segundos
+                setTimeout(() => {
+                    unsubscribe();
+                    resolve(null);
+                }, 5000);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            addDebugLog('🚀 Dashboard loading started');
             
-            loading.style.display = 'block';
+            // Initialize Firebase directly here for testing
+            initializeFirebaseDebug();
+        });
+
+
+        function initializeClientDashboard() {
+            console.log('🔥 Firebase listo, configurando auth state...');
             
-            try {
-                // [ESPACIO FIREBASE FIRESTORE] - Load user's points by business
-                userBusinesses = await cargarPuntosUsuario(currentUser.uid);
+            // Verificar si hay usuario simulado primero
+            const simulatedUser = localStorage.getItem('simulatedUser');
+            if (simulatedUser) {
+                console.log('🧪 Usuario simulado encontrado');
+                try {
+                    const user = JSON.parse(simulatedUser);
+                    window.simulatedUser = user;
+                    currentUser = user;
+                    
+                    console.log('✅ Usuario simulado cargado:', user.uid);
+                    
+                    // Update header
+                    const userName = user.displayName || user.phoneNumber || 'Usuario';
+                    document.getElementById('user-name').textContent = `Bienvenido, ${userName}`;
+                    
+                    // Cargar datos del usuario
+                    loadUserData();
+                    return;
+                } catch (error) {
+                    console.error('❌ Error cargando usuario simulado:', error);
+                }
+            }
+            
+            // Auth listener normal para usuarios reales
+            window.auth.onAuthStateChanged(async function(user) {
+                console.log('👤 Auth state changed:', user ? user.uid : 'No user');
                 
-                if (userBusinesses.length === 0) {
-                    showEmptyState();
+                if (user) {
+                    currentUser = user;
+                    console.log('✅ Usuario autenticado:', user.uid);
+                    
+                    try {
+                        const userDoc = await window.db.collection('users').doc(user.uid).get();
+                        
+                        if (!userDoc.exists) {
+                            console.log('❌ Usuario no existe en Firestore');
+                            await window.auth.signOut();
+                            window.location.href = '../index.html';
+                            return;
+                        }
+                        
+                        const userData = userDoc.data();
+                        console.log('👤 Datos de usuario obtenidos:', userData);
+                        
+                        const userName = userData.name || userData.displayName || user.displayName || 'Usuario';
+                        document.getElementById('user-name').textContent = `Bienvenido, ${userName.split(' ')[0]}`;
+                        
+                        await loadUserData();
+                        
+                    } catch (error) {
+                        console.error('❌ Error verificando usuario:', error);
+                        await window.auth.signOut();
+                        window.location.href = '../index.html';
+                    }
+                    
                 } else {
-                    displayBusinessCards();
-                    updateTotalStars();
+                    console.log('❌ Usuario no autenticado, redirigiendo...');
+                    window.location.href = '../index.html';
+                }
+            });
+        }
+
+        function initializeFirebaseDebug() {
+            addDebugLog('Esperando a que Firebase esté listo...');
+            
+            // Esperar a que firebase-config.js inicialice Firebase
+            if (window.auth && window.db) {
+                addDebugLog('Firebase ya está disponible de firebase-config.js');
+                updateDebugStatus('debug-firebase', 'READY', '#00ff00');
+                setupAuthListener();
+            } else {
+                addDebugLog('Esperando evento firebaseReady...');
+                window.addEventListener('firebaseReady', function() {
+                    addDebugLog('Firebase Ready event recibido');
+                    updateDebugStatus('debug-firebase', 'READY', '#00ff00');
+                    setupAuthListener();
+                });
+            }
+        }
+
+        function setupAuthListener() {
+            addDebugLog('Setting up auth listener...');
+            
+            // Primero verificar si hay usuario simulado
+            const simulatedUser = localStorage.getItem('simulatedUser');
+            if (simulatedUser) {
+                addDebugLog('Found simulated user in localStorage');
+                try {
+                    const user = JSON.parse(simulatedUser);
+                    window.simulatedUser = user;
+                    addDebugLog('Simulated user loaded: ' + user.uid);
+                    
+                    // Simular que está autenticado
+                    currentUser = user;
+                    updateDebugStatus('debug-auth', 'SIMULATED', '#00ff00');
+                    updateDebugStatus('debug-user', user.uid.substring(0, 8) + '...', '#00ff00');
+                    
+                    // Update header
+                    const userName = user.displayName || user.phoneNumber || 'Usuario';
+                    document.getElementById('user-name').textContent = `Bienvenido, ${userName}`;
+                    
+                    addDebugLog('Simulated user authenticated, checking Firestore...');
+                    checkUserInFirestore(user.uid);
+                    return;
+                } catch (error) {
+                    addDebugLog('Error loading simulated user: ' + error.message);
+                }
+            }
+            
+            // Listener normal de Firebase Auth
+            window.auth.onAuthStateChanged(function(user) {
+                addDebugLog('Auth state changed: ' + (user ? user.uid : 'no user'));
+                
+                if (user) {
+                    currentUser = user;
+                    updateDebugStatus('debug-auth', 'AUTHENTICATED', '#00ff00');
+                    updateDebugStatus('debug-user', user.uid.substring(0, 8) + '...', '#00ff00');
+                    
+                    // Update header
+                    const userName = user.displayName || user.phoneNumber || 'Usuario';
+                    document.getElementById('user-name').textContent = `Bienvenido, ${userName}`;
+                    
+                    addDebugLog('User authenticated, checking Firestore...');
+                    checkUserInFirestore(user.uid);
+                    
+                } else {
+                    updateDebugStatus('debug-auth', 'NOT AUTH', '#ff0000');
+                    updateDebugStatus('debug-user', 'None', '#ff0000');
+                    addDebugLog('No user, redirecting to login...');
+                    
+                    setTimeout(() => {
+                        window.location.href = '../index.html';
+                    }, 3000);
+                }
+            });
+        }
+
+
+        async function checkUserInFirestore(userId) {
+            try {
+                addDebugLog('Checking user in Firestore: ' + userId);
+                
+                const userDoc = await window.db.collection('users').doc(userId).get();
+                
+                if (userDoc.exists) {
+                    addDebugLog('✅ User found in Firestore');
+                    const userData = userDoc.data();
+                    addDebugLog('User data: ' + JSON.stringify(userData).substring(0, 100) + '...');
+                    
+                    // Load user data
+                    loadUserDataDebug();
+                    
+                } else {
+                    addDebugLog('❌ User not found in Firestore');
+                    updateDebugStatus('debug-user', 'NOT IN DB', '#ff0000');
+                    
+                    setTimeout(() => {
+                        window.location.href = '../index.html';
+                    }, 3000);
                 }
                 
             } catch (error) {
-                console.error('Error loading user data:', error);
-                showError(error.message);
+                addDebugLog('❌ Firestore check error: ' + error.message);
+                updateDebugStatus('debug-user', 'DB ERROR', '#ff0000');
+            }
+        }
+
+        async function loadUserDataDebug() {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+            
+            addDebugLog('Loading user data using cargarPuntosUsuario function...');
+
+            try {
+                const userId = 'XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2';
+                
+                // 🎯 USAR LA FUNCIÓN EXISTENTE DE FIREBASE-CONFIG
+                const businesses = await cargarPuntosUsuario(userId);
+                
+                addDebugLog(`Found businesses: ${businesses.length}`);
+                
+                // Inicializar stats
+                userStats = {
+                    totalStars: 0,
+                    totalEarned: 0,
+                    totalRedeemed: 0,
+                    totalVisits: 0,
+                    totalRedemptions: 0,
+                    totalBusinesses: businesses.length
+                };
+                
+                // 🎯 CALCULAR DESDE LOS RESULTADOS DE LA FUNCIÓN
+                businesses.forEach(business => {
+                    userStats.totalStars += business.stars || 0;
+                    userStats.totalVisits += business.visits || 0;
+                    
+                    // Calcular earned y redeemed desde las transacciones
+                    business.transactions.forEach(transaction => {
+                        if (transaction.type === 'earned') {
+                            userStats.totalEarned += transaction.points || 0;
+                        } else if (transaction.type === 'redeemed') {
+                            userStats.totalRedeemed += transaction.points || 0;
+                            userStats.totalRedemptions += 1;
+                        }
+                    });
+                });
+                
+                addDebugLog(`📊 Stats calculated from businesses:`);
+                addDebugLog(`- Current points: ${userStats.totalStars}`);
+                addDebugLog(`- Total earned: ${userStats.totalEarned}`);
+                addDebugLog(`- Total redeemed: ${userStats.totalRedeemed}`);
+                addDebugLog(`- Visits: ${userStats.totalVisits}`);
+                addDebugLog(`- Redemptions: ${userStats.totalRedemptions}`);
+                addDebugLog(`- Businesses: ${userStats.totalBusinesses}`);
+                
+                updateAllStats();
+                
+                // Mostrar las tarjetas de negocios si hay datos
+                if (businesses.length > 0) {
+                    displayBusinessCards(businesses);
+                } else {
+                    showEmptyState();
+                }
+                
+                addDebugLog('✅ User data loaded successfully using existing function');
+
+            } catch (error) {
+                addDebugLog('❌ Error loading user data: ' + error.message);
+                console.error('Error:', error);
+                showEmptyState();
             } finally {
                 loading.style.display = 'none';
             }
         }
 
-        function displayBusinessCards() {
+        function updateAllStats() {
+            console.log('🔄 Updating stats in DOM:', userStats);
+            
+            const totalStarsEl = document.getElementById('total-stars');
+            const totalBusinessesEl = document.getElementById('total-businesses');
+            const totalVisitsEl = document.getElementById('total-visits');
+            const totalRedemptionsEl = document.getElementById('total-redemptions');
+            
+            if (totalStarsEl) {
+                totalStarsEl.textContent = userStats.totalStars;
+                console.log('✅ Updated total-stars:', userStats.totalStars);
+            } else {
+                console.log('❌ total-stars element not found');
+            }
+            
+            if (totalBusinessesEl) {
+                totalBusinessesEl.textContent = userStats.totalBusinesses;
+                console.log('✅ Updated total-businesses:', userStats.totalBusinesses);
+            }
+            
+            if (totalVisitsEl) {
+                totalVisitsEl.textContent = userStats.totalVisits;
+                console.log('✅ Updated total-visits:', userStats.totalVisits);
+            }
+            
+            if (totalRedemptionsEl) {
+                totalRedemptionsEl.textContent = userStats.totalRedemptions;
+                console.log('✅ Updated total-redemptions:', userStats.totalRedemptions);
+            }
+        }
+
+        function displayBusinessCards(businesses) {
             const businessCards = document.getElementById('business-cards');
             const emptyState = document.getElementById('empty-state');
+            
+            addDebugLog(`Displaying ${businesses.length} business cards`);
             
             businessCards.innerHTML = '';
             emptyState.style.display = 'none';
             
-            userBusinesses.forEach(business => {
-                const card = createBusinessCard(business);
+            businesses.forEach(business => {
+                const card = document.createElement('div');
+                card.className = 'business-card';
+                card.style.cssText = `
+                    background: var(--gradient-card);
+                    border-radius: 15px;
+                    padding: 20px;
+                    margin-bottom: 15px;
+                    border: 1px solid var(--border-warm);
+                    cursor: pointer;
+                    transition: transform 0.3s ease;
+                `;
+                
+                card.innerHTML = `
+                    <div class="business-header" style="display: flex; align-items: center; margin-bottom: 15px;">
+                        <div class="business-icon" style="
+                            width: 50px; 
+                            height: 50px; 
+                            background: var(--gradient-orange); 
+                            border-radius: 50%; 
+                            display: flex; 
+                            align-items: center; 
+                            justify-content: center; 
+                            margin-right: 15px;
+                        ">
+                            <i class="fas fa-store" style="color: white; font-size: 20px;"></i>
+                        </div>
+                        <div class="business-info">
+                            <h3 style="color: var(--text-white); margin: 0 0 5px 0; font-size: 18px;">${business.name}</h3>
+                            <p style="color: var(--secondary-gray); margin: 0; font-size: 14px;">${business.address}</p>
+                        </div>
+                    </div>
+                    <div class="business-stats" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="stars" style="
+                            background: rgba(255, 140, 66, 0.1); 
+                            padding: 8px 12px; 
+                            border-radius: 8px; 
+                            border: 1px solid rgba(255, 140, 66, 0.3);
+                        ">
+                            <i class="fas fa-star" style="color: var(--primary-orange); margin-right: 5px;"></i>
+                            <span style="color: var(--primary-orange); font-weight: bold;">${business.stars} puntos</span>
+                        </div>
+                        <div class="visits" style="color: var(--secondary-gray); font-size: 14px;">
+                            <i class="fas fa-calendar-check" style="margin-right: 5px;"></i>
+                            ${business.visits} visitas
+                        </div>
+                    </div>
+                `;
+                
+                // Hover effect
+                card.addEventListener('mouseenter', () => {
+                    card.style.transform = 'translateY(-5px)';
+                    card.style.boxShadow = '0 15px 35px var(--shadow-orange)';
+                });
+                
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = 'translateY(0)';
+                    card.style.boxShadow = 'none';
+                });
+                
                 businessCards.appendChild(card);
             });
-        }
-
-        function createBusinessCard(business) {
-            const card = document.createElement('div');
-            card.className = 'business-card';
-            card.onclick = () => showBusinessDetail(business);
             
-            card.innerHTML = `
-                <div class="business-image">
-                    <img src="${business.image || '../images/default-business.svg'}" alt="${business.name}">
-                </div>
-                <div class="business-info">
-                    <h3 class="business-name">${business.name}</h3>
-                    <p class="business-address">${business.address}</p>
-                    <div class="business-stars">
-                        <i class="fas fa-star"></i>
-                        <span class="stars-count">${business.stars}</span>
-                        <span class="stars-label" data-translate="stars">estrellas</span>
-                    </div>
-                </div>
-                <div class="card-arrow">
-                    <i class="fas fa-chevron-right"></i>
-                </div>
-            `;
-            
-            return card;
-        }
-
-        function showBusinessDetail(business) {
-            const modal = document.getElementById('business-modal');
-            
-            // Populate modal with business data
-            document.getElementById('modal-business-name').textContent = business.name;
-            document.getElementById('modal-business-image').src = business.image || '../images/default-business.svg';
-            document.getElementById('modal-business-address').textContent = business.address;
-            document.getElementById('modal-business-stars').textContent = business.stars;
-            
-            // Load transaction history
-            loadTransactionHistory(business.id);
-            
-            modal.style.display = 'block';
-        }
-
-        async function loadTransactionHistory(businessId) {
-            const historyContainer = document.getElementById('transaction-history');
-            historyContainer.innerHTML = '<div class="loading-small"><div class="spinner-small"></div></div>';
-            
-            try {
-                // [ESPACIO FIREBASE FIRESTORE] - Load transaction history
-                const transactions = await getTransactionHistory(currentUser.uid, businessId);
-                
-                if (transactions.length === 0) {
-                    historyContainer.innerHTML = `<p class="no-transactions" data-translate="no_transactions">No hay transacciones</p>`;
-                } else {
-                    historyContainer.innerHTML = transactions.map(transaction => `
-                        <div class="transaction-item">
-                            <div class="transaction-date">${formatDate(transaction.date)}</div>
-                            <div class="transaction-stars">
-                                <i class="fas fa-star"></i>
-                                +${transaction.stars}
-                            </div>
-                        </div>
-                    `).join('');
-                }
-            } catch (error) {
-                historyContainer.innerHTML = `<p class="error" data-translate="error_loading">Error al cargar historial</p>`;
-            }
-        }
-
-        function updateTotalStars() {
-            const totalStars = userBusinesses.reduce((sum, business) => sum + business.stars, 0);
-            document.getElementById('total-stars').textContent = totalStars;
+            businessCards.style.display = 'block';
+            addDebugLog(`✅ ${businesses.length} business cards displayed`);
         }
 
         function showEmptyState() {
@@ -252,50 +577,34 @@
             
             businessCards.innerHTML = '';
             emptyState.style.display = 'block';
+            
+            updateAllStats();
         }
 
-        function closeModal() {
-            document.getElementById('business-modal').style.display = 'none';
+        function goToScanner() {
+            window.location.href = 'escanear-qr.html';
         }
 
         function goToMap() {
             window.location.href = 'mapa.html';
         }
 
-        function showError(message) {
-            alert(message);
-        }
-
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('business-modal');
-            if (event.target === modal) {
-                closeModal();
+        // Debug buttons
+        window.testFirebase = async function() {
+            try {
+                addDebugLog('Testing Firebase connection...');
+                const testDoc = await window.db.collection('test').doc('test').get();
+                addDebugLog('✅ Firebase connection OK');
+            } catch (error) {
+                addDebugLog('❌ Firebase test failed: ' + error.message);
             }
-        }
+        };
 
-        // [ESPACIO FIREBASE FIRESTORE] - Firebase functions to implement
-        async function cargarPuntosUsuario(userId) {
-            // Query user's points by business from Firestore
-            // Return array of business objects with stars
-            console.log('Loading points for user:', userId);
-            // Temporary mock data - replace with Firebase query
-            return [];
-        }
+        window.checkAuth = function() {
+            addDebugLog('Current user: ' + (window.auth.currentUser ? window.auth.currentUser.uid : 'none'));
+        };
 
-        async function getTransactionHistory(userId, businessId) {
-            // Query transaction history from Firestore
-            // Return array of transaction objects
-            console.log('Loading transaction history for user:', userId, 'business:', businessId);
-            // Temporary mock data - replace with Firebase query
-            return [];
-        }
-
-        function getCurrentUser() {
-            // [ESPACIO FIREBASE AUTH] - Get current authenticated user
-            // Return user object or null
-            return null;
-        }
+        addDebugLog('🎉 Debug dashboard loaded');
     </script>
 </body>
 </html>

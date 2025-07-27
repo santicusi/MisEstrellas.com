@@ -4,10 +4,524 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MisEstrellas - Escanear QR</title>
-    <link rel="stylesheet" href="../css/main.css">
-    <link rel="stylesheet" href="../css/components.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-black: #0F0F0F;
+            --text-white: #FFFFFF;
+            --success-green: #4CAF50;
+            --error-red: #F44336;
+            --warning-yellow: #FFC107;
+            --primary-orange: #FF8C42;
+            --hover-orange: #FF7A2B;
+            --warm-gray: #2A2A2A;
+            --light-warm: #363636;
+            --card-warm: #1F1F1F;
+            --border-warm: #404040;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-black);
+            color: var(--text-white);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: var(--card-warm);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-warm);
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--text-white);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .language-toggle {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .lang-btn {
+            background: var(--warm-gray);
+            border: none;
+            color: var(--text-white);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+
+        .lang-btn.active {
+            background: var(--primary-orange);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Camera Section */
+        .camera-section {
+            background: var(--card-warm);
+            border-radius: 1rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            background: var(--warm-gray);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #camera-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .scan-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .scan-frame {
+            width: 200px;
+            height: 200px;
+            position: relative;
+        }
+
+        .scan-corners {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        .corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid var(--primary-orange);
+        }
+
+        .corner.top-left {
+            top: 0;
+            left: 0;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .corner.top-right {
+            top: 0;
+            right: 0;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .corner.bottom-left {
+            bottom: 0;
+            left: 0;
+            border-right: none;
+            border-top: none;
+        }
+
+        .corner.bottom-right {
+            bottom: 0;
+            right: 0;
+            border-left: none;
+            border-top: none;
+        }
+
+        /* Camera Controls */
+        .camera-controls {
+            padding: 1rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .control-btn {
+            background: var(--warm-gray);
+            border: none;
+            color: var(--text-white);
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .control-btn:hover {
+            background: var(--light-warm);
+        }
+
+        /* Status Section */
+        .status-section {
+            background: var(--card-warm);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .status-icon {
+            font-size: 3rem;
+            color: var(--primary-orange);
+        }
+
+        .status-text {
+            font-size: 1.125rem;
+            color: var(--text-white);
+        }
+
+        .status-text.processing {
+            color: var(--warning-yellow);
+        }
+
+        .status-text.success {
+            color: var(--success-green);
+        }
+
+        .status-text.error {
+            color: var(--error-red);
+        }
+
+        /* Instructions */
+        .instructions {
+            background: var(--card-warm);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+
+        .instructions h3 {
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+            color: var(--primary-orange);
+        }
+
+        .instructions ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .instructions li {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--text-white);
+        }
+
+        .instructions li::before {
+            content: "•";
+            color: var(--primary-orange);
+            font-size: 1.5rem;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            background: var(--card-warm);
+            border-top: 1px solid var(--border-warm);
+            padding: 1rem;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            text-decoration: none;
+            color: var(--text-white);
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .nav-item.active {
+            opacity: 1;
+            color: var(--primary-orange);
+        }
+
+        .nav-item i {
+            font-size: 1.25rem;
+        }
+
+        .nav-item span {
+            font-size: 0.75rem;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-warm);
+            border-radius: 1rem;
+            max-width: 400px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-warm);
+        }
+
+        .modal-header h2 {
+            font-size: 1.5rem;
+            text-align: center;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .business-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .business-logo {
+            width: 60px;
+            height: 60px;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            background: var(--warm-gray);
+        }
+
+        .business-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .business-details h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .business-details p {
+            color: #AAA;
+            font-size: 0.875rem;
+        }
+
+        .points-info {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .points-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-orange);
+            margin-bottom: 0.5rem;
+        }
+
+        .points-description {
+            color: #AAA;
+            font-size: 0.875rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn-secondary,
+        .btn-primary {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary {
+            background: var(--warm-gray);
+            color: var(--text-white);
+        }
+
+        .btn-secondary:hover {
+            background: var(--light-warm);
+        }
+
+        .btn-primary {
+            background: var(--primary-orange);
+            color: var(--text-white);
+        }
+
+        .btn-primary:hover {
+            background: var(--hover-orange);
+        }
+
+        .btn-primary:disabled {
+            background: var(--warm-gray);
+            cursor: not-allowed;
+        }
+
+        /* Success Modal */
+        .success-animation {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .success-animation i {
+            font-size: 4rem;
+            color: var(--success-green);
+        }
+
+        .success-info {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .success-message {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .earned-details .business-name {
+            color: #AAA;
+            margin-bottom: 0.5rem;
+        }
+
+        .stars-earned {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 1.5rem;
+            color: var(--primary-orange);
+        }
+
+        /* Error Modal */
+        .error-animation {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .error-animation i {
+            font-size: 4rem;
+            color: var(--error-red);
+        }
+
+        .error-text {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: var(--error-red);
+        }
+
+        /* Loading state */
+        .fa-spin {
+            animation: fa-spin 2s infinite linear;
+        }
+
+        @keyframes fa-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .camera-container {
+                height: 250px;
+            }
+            
+            .scan-frame {
+                width: 150px;
+                height: 150px;
+            }
+        }
+    </style>
 </head>
+
 <body>
     <div class="container">
         <!-- Header -->
@@ -16,10 +530,10 @@
                 <button class="back-btn" onclick="window.history.back()">
                     <i class="fas fa-arrow-left"></i>
                 </button>
-                <h1 data-translate="scan_qr">Escanear QR</h1>
+                <h1>Escanear QR</h1>
                 <div class="language-toggle">
-                    <button class="lang-btn" onclick="changeLanguage('es')" id="lang-es">ES</button>
-                    <button class="lang-btn" onclick="changeLanguage('en')" id="lang-en">EN</button>
+                    <button class="lang-btn active">ES</button>
+                    <button class="lang-btn">EN</button>
                 </div>
             </div>
         </header>
@@ -29,7 +543,7 @@
             <!-- Camera Section -->
             <div class="camera-section">
                 <div class="camera-container" id="camera-container">
-                    <video id="camera-video" autoplay playsinline></video>
+                    <video id="camera-video" autoplay playsinline muted></video>
                     <div class="scan-overlay">
                         <div class="scan-frame">
                             <div class="scan-corners">
@@ -47,11 +561,7 @@
                 <div class="camera-controls">
                     <button class="control-btn" id="flip-camera-btn" onclick="flipCamera()">
                         <i class="fas fa-sync-alt"></i>
-                        <span data-translate="flip_camera">Cambiar Cámara</span>
-                    </button>
-                    <button class="control-btn" id="toggle-flash-btn" onclick="toggleFlash()" style="display: none;">
-                        <i class="fas fa-flashlight"></i>
-                        <span data-translate="flash">Flash</span>
+                        <span>Cambiar Cámara</span>
                     </button>
                 </div>
             </div>
@@ -62,17 +572,17 @@
                     <div class="status-icon">
                         <i class="fas fa-qrcode"></i>
                     </div>
-                    <p class="status-text" id="status-text" data-translate="scanning">Buscando código QR...</p>
+                    <p class="status-text" id="status-text">Buscando código QR...</p>
                 </div>
             </div>
 
             <!-- Instructions -->
             <div class="instructions">
-                <h3 data-translate="instructions">Instrucciones</h3>
+                <h3>Instrucciones</h3>
                 <ul>
-                    <li data-translate="instruction_1">Apunta la cámara hacia el código QR</li>
-                    <li data-translate="instruction_2">Asegúrate de que el código esté dentro del marco</li>
-                    <li data-translate="instruction_3">Mantén la cámara estable hasta que se detecte</li>
+                    <li>Apunta la cámara hacia el código QR</li>
+                    <li>Asegúrate de que el código esté dentro del marco</li>
+                    <li>Mantén la cámara estable hasta que se detecte</li>
                 </ul>
             </div>
         </main>
@@ -81,42 +591,80 @@
         <nav class="bottom-nav">
             <a href="dashboard.html" class="nav-item">
                 <i class="fas fa-home"></i>
-                <span data-translate="dashboard">Dashboard</span>
+                <span>Dashboard</span>
             </a>
             <a href="escanear-qr.html" class="nav-item active">
                 <i class="fas fa-qrcode"></i>
-                <span data-translate="scan_qr">Escanear QR</span>
+                <span>Escanear QR</span>
             </a>
             <a href="mapa.html" class="nav-item">
                 <i class="fas fa-map"></i>
-                <span data-translate="map">Mapa</span>
+                <span>Mapa</span>
             </a>
             <a href="perfil.html" class="nav-item">
                 <i class="fas fa-user"></i>
-                <span data-translate="profile">Perfil</span>
+                <span>Perfil</span>
             </a>
         </nav>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal" id="confirmation-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirmar Puntos</h2>
+            </div>
+            <div class="modal-body">
+                <div class="business-info">
+                    <div class="business-logo">
+                        <img id="modal-business-image" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiByeD0iOCIgZmlsbD0iI0ZGOEM0MiIvPgo8cGF0aCBkPSJNMzAgMTVMMzUgMjVIMjVMMzAgMTVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMjAgMzVIMjVWNDBIMjBWMzVaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMzUgMzVINDBWNDBIMzVWMzVaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4=" alt="Negocio">
+                    </div>
+                    <div class="business-details">
+                        <h3 id="modal-business-name">Negocio</h3>
+                        <p id="modal-business-address">Dirección</p>
+                    </div>
+                </div>
+                <div class="points-info">
+                    <div class="points-display">
+                        <i class="fas fa-star"></i>
+                        <span id="modal-points">0</span>
+                        <span>puntos</span>
+                    </div>
+                    <p class="points-description">Estás a punto de recibir estos puntos</p>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="closeConfirmationModal()">Cancelar</button>
+                    <button class="btn-primary" onclick="confirmEarnPoints()">Aceptar Puntos</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Success Modal -->
     <div class="modal" id="success-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 data-translate="success">¡Éxito!</h2>
+                <h2>¡Éxito!</h2>
             </div>
             <div class="modal-body">
                 <div class="success-animation">
                     <i class="fas fa-check-circle"></i>
                 </div>
                 <div class="success-info">
-                    <p class="business-name" id="success-business-name"></p>
-                    <p class="stars-earned">
-                        <i class="fas fa-star"></i>
-                        <span id="success-stars">0</span>
-                        <span data-translate="stars_earned">estrellas ganadas</span>
-                    </p>
+                    <p class="success-message">¡Puntos ganados exitosamente!</p>
+                    <div class="earned-details">
+                        <p class="business-name" id="success-business-name"></p>
+                        <p class="stars-earned">
+                            <i class="fas fa-star"></i>
+                            <span id="success-stars">0</span>
+                            <span>estrellas ganadas</span>
+                        </p>
+                    </div>
                 </div>
-                <button class="btn-primary" onclick="closeSuccessModal()" data-translate="continue">Continuar</button>
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="closeSuccessModal()">Seguir Escaneando</button>
+                    <button class="btn-primary" onclick="goToDashboard()">Ver Dashboard</button>
+                </div>
             </div>
         </div>
     </div>
@@ -125,67 +673,184 @@
     <div class="modal" id="error-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 data-translate="error">Error</h2>
+                <h2>Error</h2>
             </div>
             <div class="modal-body">
                 <div class="error-animation">
                     <i class="fas fa-exclamation-triangle"></i>
                 </div>
                 <p id="error-message" class="error-text"></p>
-                <button class="btn-primary" onclick="closeErrorModal()" data-translate="try_again">Intentar de nuevo</button>
+                <div class="modal-actions">
+                    <button class="btn-primary" onclick="closeErrorModal()">Intentar de nuevo</button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
-    <script src="../js/translations.js"></script>
-    <script src="../js/utils.js"></script>
-    <script src="../js/firebase-config.js"></script>
-    <script src="../js/auth.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     
     <script>
-        let videoElement;
-        let canvasElement;
-        let canvasContext;
+        // ==========================================
+        // CONFIGURACIÓN DE FIREBASE
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAdRYp6pQRVoPnhOEnz3PrYPz8B2jswo3Y",
+            authDomain: "miestrellas-d677e.firebaseapp.com",
+            projectId: "miestrellas-d677e",
+            storageBucket: "miestrellas-d677e.firebasestorage.app",
+            messagingSenderId: "942296067880",
+            appId: "1:942296067880:web:b5c9e6a7c03d06aa07aa1d"
+        };
+
+        // Variables globales
+        let app, auth, db, storage;
+        let videoElement, canvasElement, canvasContext;
         let currentStream = null;
         let currentFacingMode = 'environment';
         let isScanning = false;
         let animationId;
         let currentUser = null;
+        let qrProcessingData = null;
 
-        document.addEventListener('DOMContentLoaded', function() {
-            checkAuthentication();
-            updateTexts();
-            initializeScanner();
+        // ==========================================
+        // INICIALIZACIÓN
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Inicializando aplicación...');
+            
+            try {
+                // Inicializar Firebase
+                await initializeFirebase();
+                console.log('✅ Firebase inicializado');
+                
+                // Verificar autenticación (sin redirigir)
+                await checkAuthentication();
+                console.log('✅ Autenticación verificada');
+                
+                // Inicializar escáner
+                await initializeScanner();
+                console.log('✅ Escáner inicializado');
+                
+                console.log('✅ Aplicación inicializada correctamente');
+                
+            } catch (error) {
+                console.error('❌ Error en inicialización:', error);
+                
+                // NO usar showError que puede redirigir, usar alert temporal
+                alert('Error: ' + error.message);
+                
+                // Mostrar error en pantalla también
+                const statusText = document.getElementById('status-text');
+                if (statusText) {
+                    statusText.textContent = 'ERROR: ' + error.message;
+                    statusText.className = 'status-text error';
+                }
+                
+                // QUEDARSE en la página para debug
+            }
         });
 
-        function checkAuthentication() {
-            // [ESPACIO FIREBASE AUTH] - Check if user is logged in
-            currentUser = getCurrentUser();
-            if (!currentUser) {
-                window.location.href = '../index.html';
-                return;
+        async function initializeFirebase() {
+            console.log('🔥 Inicializando Firebase...');
+            
+            try {
+                // Verificar si Firebase está disponible
+                if (typeof firebase === 'undefined') {
+                    throw new Error('Firebase SDK no está cargado');
+                }
+
+                // Inicializar Firebase
+                if (firebase.apps.length === 0) {
+                    app = firebase.initializeApp(firebaseConfig);
+                } else {
+                    app = firebase.app();
+                }
+
+                // Inicializar servicios
+                auth = firebase.auth();
+                db = firebase.firestore();
+                storage = firebase.storage();
+
+                // Configurar persistencia
+                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                
+                console.log('✅ Firebase inicializado correctamente');
+                
+            } catch (error) {
+                console.error('❌ Error inicializando Firebase:', error);
+                throw error;
             }
         }
 
+        async function checkAuthentication() {
+            console.log('🔐 Verificando autenticación...');
+            
+            return new Promise((resolve, reject) => {
+                const unsubscribe = auth.onAuthStateChanged((user) => {
+                    unsubscribe();
+                    
+                    if (user) {
+                        currentUser = user;
+                        console.log('✅ Usuario autenticado:', user.uid);
+                        resolve(user);
+                    } else {
+                        console.log('❌ Usuario no autenticado - usando modo debug');
+                        
+                        // MODO DEBUG: Crear usuario falso para testing
+                        currentUser = { 
+                            uid: 'debug-user-' + Date.now(),
+                            displayName: 'Usuario Debug',
+                            email: 'debug@test.com',
+                            phoneNumber: '+57300123456'
+                        };
+                        
+                        console.log('🧪 Usuario debug creado:', currentUser.uid);
+                        resolve(currentUser);
+                    }
+                });
+            });
+        }
+
+        // ==========================================
+        // ESCÁNER QR
+        // ==========================================
         async function initializeScanner() {
+            console.log('📷 Inicializando escáner...');
+            
             videoElement = document.getElementById('camera-video');
             canvasElement = document.getElementById('scan-canvas');
+            
+            if (!videoElement || !canvasElement) {
+                throw new Error('Elementos de video o canvas no encontrados');
+            }
+            
             canvasContext = canvasElement.getContext('2d');
 
             try {
                 await startCamera();
                 startScanning();
+                console.log('✅ Escáner inicializado correctamente');
             } catch (error) {
-                console.error('Error initializing scanner:', error);
-                showError(t('camera_error'));
+                console.error('❌ Error inicializando escáner:', error);
+                showError('Error: ' + error.message);
+                
+                // Mostrar mensaje en lugar de redirigir
+                updateStatus('error', 'fas fa-exclamation-triangle');
             }
         }
 
         async function startCamera() {
+            console.log('📹 Iniciando cámara...');
+            
             try {
-                // Stop current stream if exists
+                // Verificar si el navegador soporta getUserMedia
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Tu navegador no soporta acceso a la cámara');
+                }
+
+                // Detener stream actual si existe
                 if (currentStream) {
                     currentStream.getTracks().forEach(track => track.stop());
                 }
@@ -193,35 +858,58 @@
                 const constraints = {
                     video: {
                         facingMode: currentFacingMode,
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                        width: { ideal: 1280, min: 640 },
+                        height: { ideal: 720, min: 480 }
                     }
                 };
 
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 videoElement.srcObject = currentStream;
                 
-                videoElement.addEventListener('loadedmetadata', () => {
-                    canvasElement.width = videoElement.videoWidth;
-                    canvasElement.height = videoElement.videoHeight;
+                // Esperar a que el video cargue
+                await new Promise((resolve, reject) => {
+                    videoElement.addEventListener('loadedmetadata', () => {
+                        canvasElement.width = videoElement.videoWidth;
+                        canvasElement.height = videoElement.videoHeight;
+                        console.log('📐 Video listo:', videoElement.videoWidth, 'x', videoElement.videoHeight);
+                        resolve();
+                    });
+                    
+                    videoElement.addEventListener('error', (e) => {
+                        reject(new Error('Error cargando video'));
+                    });
+                    
+                    // Timeout de seguridad
+                    setTimeout(() => reject(new Error('Timeout cargando cámara')), 10000);
                 });
 
                 updateStatus('scanning', 'fas fa-qrcode');
                 
             } catch (error) {
-                console.error('Error accessing camera:', error);
-                throw new Error(t('camera_permission_error'));
+                console.error('❌ Error accediendo a la cámara:', error);
+                
+                if (error.name === 'NotAllowedError') {
+                    throw new Error('Permisos de cámara denegados. Permite el acceso a la cámara.');
+                } else if (error.name === 'NotFoundError') {
+                    throw new Error('No se encontró ninguna cámara en el dispositivo.');
+                } else if (error.name === 'NotReadableError') {
+                    throw new Error('La cámara está siendo usada por otra aplicación.');
+                } else {
+                    throw new Error('Error accediendo a la cámara: ' + error.message);
+                }
             }
         }
 
         function startScanning() {
             if (!isScanning) {
+                console.log('👁️ Iniciando escaneo...');
                 isScanning = true;
-                requestAnimationFrame(scanFrame);
+                scanFrame();
             }
         }
 
         function stopScanning() {
+            console.log('⏹️ Deteniendo escaneo...');
             isScanning = false;
             if (animationId) {
                 cancelAnimationFrame(animationId);
@@ -231,143 +919,500 @@
         function scanFrame() {
             if (!isScanning) return;
 
-            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
-                canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
-                
-                const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height);
-                
-                if (code) {
-                    stopScanning();
-                    procesarQR(code.data);
-                    return;
+            try {
+                if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                    // Dibujar frame actual en canvas
+                    canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+                    
+                    // Obtener datos de imagen
+                    const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                    
+                    // Buscar código QR
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: "dontInvert"
+                    });
+                    
+                    if (code) {
+                        console.log('📱 QR detectado:', code.data);
+                        stopScanning();
+                        processQR(code.data);
+                        return;
+                    }
                 }
+            } catch (error) {
+                console.error('❌ Error en scanFrame:', error);
             }
 
             animationId = requestAnimationFrame(scanFrame);
         }
 
-        async function procesarQR(qrData) {
+        // ==========================================
+        // PROCESAMIENTO DE QR
+        // ==========================================
+        async function processQR(qrData) {
+            console.log('🔍 Procesando QR:', qrData);
             updateStatus('processing', 'fas fa-spinner fa-spin');
             
             try {
-                // [ESPACIO FIREBASE + CAMERA] - Process QR code
-                const result = await processQRCode(qrData, currentUser.uid);
-                
-                if (result.success) {
-                    showSuccessModal(result.business, result.stars);
-                } else {
-                    showError(result.message || t('invalid_qr'));
+                // Validar formato básico
+                if (!qrData || typeof qrData !== 'string') {
+                    throw new Error('Código QR inválido');
+                }
+
+                // Parsear el código QR
+                const parts = qrData.split(':');
+                if (parts.length !== 4 || parts[0] !== 'POINTS') {
+                    throw new Error('Formato de QR no válido para puntos');
                 }
                 
+                const [type, businessId, qrId, points] = parts;
+                const pointsToAdd = parseInt(points);
+                
+                if (isNaN(pointsToAdd) || pointsToAdd <= 0) {
+                    throw new Error('Cantidad de puntos inválida');
+                }
+
+                // Verificar QR en Firebase
+                const qrDoc = await db.collection('qr_codes').doc(qrId).get();
+                
+                if (!qrDoc.exists) {
+                    throw new Error('Código QR no encontrado');
+                }
+                
+                const qrCodeData = qrDoc.data();
+
+                if (qrCodeData.used) {
+                    throw new Error('Este código ya fue utilizado');
+                }
+
+                // Verificaciones de seguridad
+                if (qrCodeData.expiresAt && new Date() > qrCodeData.expiresAt.toDate()) {
+                    throw new Error('Este código ha expirado');
+                }
+                
+                if (qrCodeData.businessId !== businessId) {
+                    throw new Error('Código QR corrupto');
+                }
+
+                // Obtener información del negocio
+                const businessDoc = await db.collection('businesses').doc(businessId).get();
+                if (!businessDoc.exists) {
+                    throw new Error('Negocio no encontrado');
+                }
+                
+                const businessData = businessDoc.data();
+                
+                const result = {
+                    qrId: qrId,
+                    businessId: businessId,
+                    businessName: businessData.name || 'Negocio',
+                    businessAddress: businessData.address || 'Dirección no disponible',
+                    businessImage: businessData.image || null,
+                    points: pointsToAdd,
+                    qrData: qrCodeData,
+                    businessData: businessData
+                };
+                
+                console.log('✅ QR procesado correctamente:', result);
+                
+                qrProcessingData = result;
+                showConfirmationModal(result);
+                
             } catch (error) {
-                console.error('Error processing QR:', error);
-                showError(error.message || t('processing_error'));
+                console.error('❌ Error procesando QR:', error);
+                showError(error.message || 'Error procesando código QR');
+                updateStatus('error', 'fas fa-exclamation-triangle');
+                setTimeout(() => {
+                    updateStatus('scanning', 'fas fa-qrcode');
+                    startScanning();
+                }, 3000);
             }
         }
 
-        async function processQRCode(qrData, userId) {
-            // [ESPACIO FIREBASE] - Validate QR and add points
-            console.log('Processing QR code:', qrData, 'for user:', userId);
+        // ==========================================
+        // CONFIRMACIÓN Y GANANCIA DE PUNTOS
+        // ==========================================
+        async function confirmEarnPoints() {
+            console.log('✅ Confirmando ganancia de puntos...');
             
-            // Validate QR format and business
-            // Add points to user account
-            // Return success/failure result
+            if (!qrProcessingData) {
+                showError('Error: Datos de QR no encontrados');
+                return;
+            }
             
-            // Temporary mock implementation
-            return {
-                success: false,
-                message: t('firebase_not_configured')
-            };
+            try {
+                // Mostrar loading en el botón
+                const confirmBtn = document.querySelector('#confirmation-modal .btn-primary');
+                const originalText = confirmBtn.textContent;
+                confirmBtn.textContent = 'Procesando...';
+                confirmBtn.disabled = true;
+                
+                // Procesar ganancia de puntos usando transacción
+                const result = await db.runTransaction(async (transaction) => {
+                    // 1. Verificar QR nuevamente
+                    const qrRef = db.collection('qr_codes').doc(qrProcessingData.qrId);
+                    const qrDoc = await transaction.get(qrRef);
+                    
+                    if (!qrDoc.exists) {
+                        throw new Error('Código QR no encontrado');
+                    }
+                    
+                    const qrData = qrDoc.data();
+                    
+                    if (qrData.used) {
+                        throw new Error('Este código ya fue utilizado');
+                    }
+                    
+                    if (qrData.expiresAt && new Date() > qrData.expiresAt.toDate()) {
+                        throw new Error('Este código ha expirado');
+                    }
+                    
+                    // 2. Obtener datos del usuario
+                    const userRef = db.collection('users').doc(currentUser.uid);
+                    const userDoc = await transaction.get(userRef);
+                    
+                    let userData = {};
+                    if (userDoc.exists) {
+                        userData = userDoc.data();
+                    } else {
+                        // Crear usuario si no existe
+                        userData = {
+                            name: currentUser.displayName || 'Usuario',
+                            email: currentUser.email,
+                            phoneNumber: currentUser.phoneNumber,
+                            totalPoints: 0,
+                            totalEarned: 0,
+                            totalVisits: 0,
+                            joinedBusinesses: [],
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+                        transaction.set(userRef, userData);
+                    }
+                    
+                    // 3. Crear transacción
+                    const transactionRef = db.collection('transactions').doc();
+                    const transactionData = {
+                        userId: currentUser.uid,
+                        businessId: qrProcessingData.businessId,
+                        qrCodeId: qrProcessingData.qrId,
+                        type: 'earned',
+                        points: qrProcessingData.points,
+                        description: `Puntos ganados en ${qrProcessingData.businessName}`,
+                        status: 'completed',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        metadata: {
+                            qrDisplayCode: qrData.displayCode,
+                            businessName: qrProcessingData.businessName,
+                            clientName: userData.name || currentUser.displayName || 'Usuario',
+                            clientPhone: userData.phoneNumber || currentUser.phoneNumber
+                        }
+                    };
+                    
+                    transaction.set(transactionRef, transactionData);
+                    
+                    // 4. Marcar QR como usado
+                    transaction.update(qrRef, {
+                        used: true,
+                        usedBy: currentUser.uid,
+                        usedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        clientData: {
+                            name: userData.name || currentUser.displayName || 'Usuario',
+                            phone: userData.phoneNumber || currentUser.phoneNumber,
+                            email: userData.email || currentUser.email
+                        }
+                    });
+                    
+                    // 5. Actualizar estadísticas del usuario
+                    transaction.update(userRef, {
+                        totalPoints: firebase.firestore.FieldValue.increment(qrProcessingData.points),
+                        totalEarned: firebase.firestore.FieldValue.increment(qrProcessingData.points),
+                        totalVisits: firebase.firestore.FieldValue.increment(1),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        joinedBusinesses: firebase.firestore.FieldValue.arrayUnion(qrProcessingData.businessId)
+                    });
+                    
+                    // 6. Actualizar estadísticas del negocio
+                    const businessRef = db.collection('businesses').doc(qrProcessingData.businessId);
+                    transaction.update(businessRef, {
+                        totalPointsGiven: firebase.firestore.FieldValue.increment(qrProcessingData.points),
+                        totalClients: firebase.firestore.FieldValue.increment(1),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    return {
+                        success: true,
+                        transactionId: transactionRef.id,
+                        points: qrProcessingData.points,
+                        businessName: qrProcessingData.businessName
+                    };
+                });
+                
+                console.log('🎉 Puntos confirmados:', result);
+                
+                // Cerrar modal de confirmación
+                closeConfirmationModal();
+                
+                // Mostrar éxito
+                showSuccessModal(qrProcessingData.businessName, qrProcessingData.points);
+                
+            } catch (error) {
+                console.error('❌ Error confirmando puntos:', error);
+                
+                // Restaurar botón
+                const confirmBtn = document.querySelector('#confirmation-modal .btn-primary');
+                confirmBtn.textContent = 'Aceptar Puntos';
+                confirmBtn.disabled = false;
+                
+                showError('Error confirmando puntos: ' + error.message);
+            }
         }
 
+        // ==========================================
+        // FUNCIONES DE UI
+        // ==========================================
         function updateStatus(status, iconClass) {
             const statusIcon = document.querySelector('.status-icon i');
             const statusText = document.getElementById('status-text');
+            
+            // VERIFICAR que los elementos existan antes de usarlos
+            if (!statusIcon || !statusText) {
+                console.warn('⚠️ Elementos de status no encontrados');
+                return;
+            }
             
             statusIcon.className = iconClass;
             
             switch (status) {
                 case 'scanning':
-                    statusText.textContent = t('scanning');
+                    statusText.textContent = 'Buscando código QR...';
                     statusText.className = 'status-text';
                     break;
                 case 'processing':
-                    statusText.textContent = t('processing');
+                    statusText.textContent = 'Procesando código...';
                     statusText.className = 'status-text processing';
                     break;
                 case 'success':
-                    statusText.textContent = t('qr_detected');
+                    statusText.textContent = '¡Código detectado!';
                     statusText.className = 'status-text success';
                     break;
                 case 'error':
-                    statusText.textContent = t('error_occurred');
+                    statusText.textContent = 'Error detectado';
                     statusText.className = 'status-text error';
                     break;
             }
         }
 
-        async function flipCamera() {
-            currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+        function showConfirmationModal(data) {
+            console.log('💫 Mostrando confirmación:', data);
             
-            try {
-                await startCamera();
+            const modal = document.getElementById('confirmation-modal');
+            
+            // Llenar datos del negocio
+            document.getElementById('modal-business-name').textContent = data.businessName;
+            document.getElementById('modal-business-address').textContent = data.businessAddress;
+            document.getElementById('modal-points').textContent = data.points;
+            
+            // Actualizar imagen si existe
+            if (data.businessImage) {
+                document.getElementById('modal-business-image').src = data.businessImage;
+            }
+            
+            modal.classList.add('show');
+        }
+
+        function closeConfirmationModal() {
+            document.getElementById('confirmation-modal').classList.remove('show');
+            // Reanudar escaneo después de un pequeño delay
+            setTimeout(() => {
+                updateStatus('scanning', 'fas fa-qrcode');
                 startScanning();
-            } catch (error) {
-                console.error('Error flipping camera:', error);
-                showError(t('camera_flip_error'));
-            }
+            }, 500);
         }
 
-        function toggleFlash() {
-            // Flash toggle functionality (if supported)
-            if (currentStream) {
-                const track = currentStream.getVideoTracks()[0];
-                const capabilities = track.getCapabilities();
-                
-                if (capabilities.torch) {
-                    track.applyConstraints({
-                        advanced: [{ torch: !track.getSettings().torch }]
-                    });
-                }
-            }
-        }
-
-        function showSuccessModal(business, stars) {
-            document.getElementById('success-business-name').textContent = business.name;
+        function showSuccessModal(businessName, stars) {
+            console.log('🎉 Mostrando éxito:', businessName, stars);
+            
+            document.getElementById('success-business-name').textContent = businessName;
             document.getElementById('success-stars').textContent = stars;
-            document.getElementById('success-modal').style.display = 'block';
+            document.getElementById('success-modal').classList.add('show');
             
             updateStatus('success', 'fas fa-check-circle');
         }
 
-        function showError(message) {
-            document.getElementById('error-message').textContent = message;
-            document.getElementById('error-modal').style.display = 'block';
-            
-            updateStatus('error', 'fas fa-exclamation-triangle');
-        }
-
         function closeSuccessModal() {
-            document.getElementById('success-modal').style.display = 'none';
-            startScanning();
+            document.getElementById('success-modal').classList.remove('show');
+            // Reanudar escaneo
+            setTimeout(() => {
+                updateStatus('scanning', 'fas fa-qrcode');
+                startScanning();
+            }, 500);
         }
 
+        function showError(message) {
+            console.error('🚨 Mostrando error:', message);
+            
+            // Verificar que los elementos existan
+            const errorMessage = document.getElementById('error-message');
+            const errorModal = document.getElementById('error-modal');
+            const statusText = document.getElementById('status-text');
+            
+            if (errorMessage && errorModal) {
+                errorMessage.textContent = message;
+                errorModal.classList.add('show');
+            }
+            
+            if (statusText) {
+                statusText.textContent = 'ERROR: ' + message;
+                statusText.className = 'status-text error';
+            }
+            
+            // Fallback: mostrar en alert si no hay elementos
+            if (!errorMessage || !errorModal || !statusText) {
+                alert('Error: ' + message);
+            }
+        }
         function closeErrorModal() {
-            document.getElementById('error-modal').style.display = 'none';
-            startScanning();
+            document.getElementById('error-modal').classList.remove('show');
+            // Reanudar escaneo
+            setTimeout(() => {
+                updateStatus('scanning', 'fas fa-qrcode');
+                startScanning();
+            }, 500);
         }
 
-        function getCurrentUser() {
-            // [ESPACIO FIREBASE AUTH] - Get current authenticated user
-            return null;
+        function goToDashboard() {
+            window.location.href = 'dashboard.html';
         }
 
-        // Cleanup on page unload
+        // ==========================================
+        // CONTROLES DE CÁMARA
+        // ==========================================
+        async function flipCamera() {
+            console.log('🔄 Cambiando cámara...');
+            currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+            
+            try {
+                stopScanning();
+                await startCamera();
+                startScanning();
+            } catch (error) {
+                console.error('❌ Error cambiando cámara:', error);
+                showError('Error cambiando cámara');
+            }
+        }
+
+        // ==========================================
+        // EVENT LISTENERS
+        // ==========================================
+        
+        // Cerrar modales al hacer clic fuera
+        window.onclick = function(event) {
+            const confirmationModal = document.getElementById('confirmation-modal');
+            const successModal = document.getElementById('success-modal');
+            const errorModal = document.getElementById('error-modal');
+            
+            if (event.target === confirmationModal) {
+                closeConfirmationModal();
+            }
+            
+            if (event.target === successModal) {
+                closeSuccessModal();
+            }
+            
+            if (event.target === errorModal) {
+                closeErrorModal();
+            }
+        }
+
+        // Limpieza al salir de la página
         window.addEventListener('beforeunload', function() {
+            console.log('🧹 Limpiando recursos...');
             stopScanning();
             if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
+            }
+        });
+
+        // Manejar cambios de visibilidad de la página
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                stopScanning();
+            } else if (currentStream && !isScanning) {
+                startScanning();
+            }
+        });
+
+        // ==========================================
+        // FUNCIONES DE DEBUG
+        // ==========================================
+        
+        // Función para probar QR manual (solo para desarrollo)
+        window.testQR = function(qrCode) {
+            if (!qrCode) {
+                qrCode = prompt('Ingresa el código QR manualmente:');
+            }
+            if (qrCode) {
+                stopScanning();
+                processQR(qrCode);
+            }
+        };
+
+        // Función para generar QR de prueba
+        window.generateTestQR = function() {
+            const businessId = 'CBSU8br1nARkQZgbbR6Sz8cb61v2';
+            const qrId = 'test-' + Date.now();
+            const points = 5;
+            const testQR = `POINTS:${businessId}:${qrId}:${points}`;
+            console.log('🧪 QR de prueba generado:', testQR);
+            processQR(testQR);
+        };
+
+        console.log('🎉 Escáner QR cargado completamente');
+        console.log('💡 Para pruebas usa: testQR() o generateTestQR()');
+
+        // Debug: capturar errores no manejados
+        window.addEventListener('error', function(e) {
+            console.error('🚨 Error global capturado:', e.error);
+            showError('Error inesperado: ' + e.error.message);
+        });
+
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('🚨 Promise rechazada no manejada:', e.reason);
+            showError('Error: ' + e.reason);
+        });
+
+        // Función de debug para ver el estado
+        window.debugInfo = function() {
+            const info = {
+                firebase: typeof firebase !== 'undefined',
+                auth: !!auth,
+                db: !!db,
+                currentUser: !!currentUser,
+                video: !!videoElement,
+                canvas: !!canvasElement,
+                stream: !!currentStream,
+                isScanning: isScanning,
+                // AGREGAR verificación de elementos DOM
+                statusIcon: !!document.querySelector('.status-icon i'),
+                statusText: !!document.getElementById('status-text'),
+                errorModal: !!document.getElementById('error-modal')
+            };
+
+            console.log('🔍 Estado del sistema:', info);
+            alert('Estado del sistema:\n' + JSON.stringify(info, null, 2));
+        };
+
+        // Capturar TODOS los errores
+        window.addEventListener('error', function(e) {
+            console.error('🚨 ERROR GLOBAL:', e.error);
+            console.error('🚨 En archivo:', e.filename);
+            console.error('🚨 En línea:', e.lineno);
+            
+            // Mostrar en pantalla sin redirigir
+            const statusText = document.getElementById('status-text');
+            if (statusText) {
+                statusText.textContent = 'ERROR: ' + e.error.message;
+                statusText.className = 'status-text error';
             }
         });
     </script>

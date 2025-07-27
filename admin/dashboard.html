@@ -4,82 +4,665 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MisEstrellas - Admin Dashboard</title>
+    <!-- SDKs de Firebase compatibles con navegadores normales (sin bundler) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="../css/components.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
+<style>
+/* 🔥 CSS para el header - agregar a tu main.css o components.css */
+
+:root {
+    /* Variables principales que faltan */
+    --bg-black: #0F0F0F;
+    --text-white: #FFFFFF;
+    --success-green: #4CAF50;
+    --error-red: #F44336;
+    --warning-yellow: #FFC107;
+    
+    /* Colores mejorados */
+    --primary-orange: #FF8C42;
+    --hover-orange: #FF7A2B;
+    --accent-orange: #FFA366;
+    --dark-orange: #E67A35;
+    
+    /* Tonos cálidos en lugar de grises */
+    --warm-gray: #2A2A2A;
+    --light-warm: #363636;
+    --card-warm: #1F1F1F;
+    --border-warm: #404040;
+    --secondary-gray: #AAA;
+    
+    /* Gradientes */
+    --gradient-card: linear-gradient(135deg, #1F1F1F 0%, #2A2A2A 100%);
+    --gradient-orange: linear-gradient(135deg, #FF8C42 0%, #FFA366 100%);
+    --gradient-dark: linear-gradient(135deg, #0F0F0F 0%, #1F1F1F 100%);
+    
+    /* Actualizar variables existentes */
+    --card-bg: var(--gradient-card);
+    --border-color: var(--border-warm);
+    --input-bg: var(--warm-gray);
+    --shadow-dark: rgba(0, 0, 0, 0.3);
+    --shadow-orange: rgba(255, 140, 66, 0.2);
+}
+
+/* Header Principal */
+.header {
+    background: var(--bg-black);
+    border-bottom: 1px solid var(--border-warm);
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    height: 60px;
+}
+
+.business-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.business-logo {
+    width: 40px !important;
+    height: 40px !important;
+    object-fit: contain;
+    border-radius: 8px;
+    background: var(--card-warm);
+    padding: 4px;
+    flex-shrink: 0;
+}
+
+.business-details {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.business-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-white);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.business-type {
+    font-size: 14px;
+    color: var(--secondary-gray);
+    margin: 2px 0 0 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+}
+
+/* Agregar al final de tu <style> en dashboard.html */
+
+/* Pull to Refresh */
+.pull-to-refresh {
+    position: fixed;
+    top: 60px; /* Debajo del header */
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: var(--gradient-card);
+    border-bottom: 1px solid var(--border-warm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(-60px);
+    transition: transform 0.3s ease;
+    z-index: 90;
+    opacity: 0;
+}
+
+.pull-to-refresh.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.pull-to-refresh.refreshing {
+    background: var(--primary-orange);
+    color: white;
+}
+
+.refresh-icon {
+    font-size: 1.2rem;
+    color: var(--primary-orange);
+    margin-right: 8px;
+    transition: transform 0.3s ease;
+}
+
+.pull-to-refresh.refreshing .refresh-icon {
+    color: white;
+    animation: spin 1s linear infinite;
+}
+
+.refresh-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-white);
+}
+
+.pull-to-refresh.refreshing .refresh-text {
+    color: white;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Ajustar main content para pull to refresh */
+.main-content.pull-refreshing {
+    padding-top: 140px; /* 80px normal + 60px del refresh */
+    transition: padding-top 0.3s ease;
+}
+
+/* 📱 Responsive para móviles */
+/* Responsive para móviles */
+@media (max-width: 768px) {
+    .header-content {
+        padding: 8px 16px;
+        height: 56px;
+    }
+    
+    .business-logo {
+        width: 36px !important;
+        height: 36px !important;
+    }
+    
+    .business-name {
+        font-size: 16px;
+    }
+    
+    .business-type {
+        font-size: 12px;
+    }
+    
+    .main-content {
+        padding: 70px 0 100px 0;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .actions-grid {
+        grid-template-columns: 1fr;
+    }
+    .lang-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+        min-width: 32px;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .language-toggle {
+        padding: 2px;
+    }
+    
+    .lang-btn {
+        padding: 4px 8px;
+        font-size: 11px;
+        min-width: 28px;
+    }
+    
+    .dashboard-header {
+        padding: 20px;
+    }
+    
+    .stat-card {
+        padding: 20px;
+    }
+}
+
+/* Para pantallas muy pequeñas */
+@media (max-width: 480px) {
+    .business-details {
+        max-width: 150px;
+    }
+    
+    .language-toggle {
+        display: none; /* Ocultar en móviles muy pequeños */
+    }
+}
+
+/* 🔥 Asegurar que ninguna imagen se salga de control */
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Específico para el logo */
+.business-logo {
+    display: block !important;
+    box-sizing: border-box !important;
+}
+
+/* Animaciones para hacer más dinámico */
+@keyframes slideInUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeInScale {
+    from {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Aplicar animaciones */
+.stat-card {
+    animation: slideInUp 0.6s ease forwards;
+}
+
+.stat-card:nth-child(1) { animation-delay: 0.1s; }
+.stat-card:nth-child(2) { animation-delay: 0.2s; }
+.stat-card:nth-child(3) { animation-delay: 0.3s; }
+.stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+.action-card {
+    animation: fadeInScale 0.5s ease forwards;
+}
+
+
+/* Reemplaza tu CSS del dashboard-header con esto */
+
+.dashboard-header {
+    background: var(--gradient-dark);
+    border-radius: 20px;
+    padding: 0;
+    margin-bottom: 30px;
+    border: 1px solid var(--border-warm);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.dashboard-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at top right, rgba(255, 140, 66, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.dashboard-content {
+    position: relative;
+    z-index: 1;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.business-profile {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex: 1;
+    min-width: 0;
+}
+
+.business-avatar-container {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.business-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    border: 3px solid var(--primary-orange);
+    box-shadow: 0 8px 24px rgba(255, 140, 66, 0.4);
+    object-fit: cover;
+    background: var(--card-warm);
+    padding: 8px;
+}
+
+.avatar-glow {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border-radius: 24px;
+    background: var(--gradient-orange);
+    opacity: 0;
+    animation: glow-pulse 3s ease-in-out infinite;
+    z-index: -1;
+}
+
+@keyframes glow-pulse {
+    0%, 100% { opacity: 0; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(1.05); }
+}
+
+.business-info-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.business-name-section {
+    flex: 1;
+}
+
+.business-title {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--text-white);
+    margin: 0 0 6px 0;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--text-white) 0%, var(--accent-orange) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    word-break: break-word;
+}
+
+.business-subtitle {
+    font-size: 1rem;
+    color: var(--secondary-gray);
+    font-weight: 500;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.business-status-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(76, 175, 80, 0.2);
+    border: 1px solid var(--success-green);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.status-badge.active {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: var(--success-green);
+    color: var(--success-green);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success-green);
+    animation: pulse 2s infinite;
+}
+
+.status-text {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.business-stats {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--primary-orange);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.stat-item i {
+    font-size: 0.8rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.action-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(255, 140, 66, 0.1);
+    border: 1px solid var(--border-warm);
+    color: var(--primary-orange);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+}
+
+.action-btn:hover {
+    background: var(--primary-orange);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 140, 66, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .dashboard-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+    
+    .business-profile {
+        width: 100%;
+    }
+    
+    .business-title {
+        font-size: 1.6rem;
+    }
+    
+    .business-status-section {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .header-actions {
+        align-self: flex-end;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-content {
+        padding: 20px;
+    }
+    
+    .business-profile {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .business-avatar {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .business-title {
+        font-size: 1.4rem;
+        text-align: center;
+    }
+    
+    .business-status-section {
+        align-items: center;
+        justify-content: center;
+    }
+}
+</style>
 <body>
     <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <div class="business-info">
-                    <img src="../images/logo.svg" alt="Business Logo" class="business-logo">
-                    <div class="business-details">
-                        <h2 id="business-name" class="business-name">Mi Negocio</h2>
-                        <p id="business-type" class="business-type">Restaurante</p>
-                    </div>
-                </div>
-                <div class="header-actions">
-                    <div class="language-toggle">
-                        <button class="lang-btn" onclick="changeLanguage('es')" id="lang-es">ES</button>
-                        <button class="lang-btn" onclick="changeLanguage('en')" id="lang-en">EN</button>
-                    </div>
-                    <button class="notification-btn" onclick="toggleNotifications()">
-                        <i class="fas fa-bell"></i>
-                        <span class="notification-badge" id="notification-count">0</span>
-                    </button>
-                </div>
-            </div>
-        </header>
+        <!-- Header Superior con Language Toggle -->
+
+        <!-- Agregar después del header en tu dashboard.html -->
+        <div class="pull-to-refresh" id="pull-to-refresh">
+            <i class="fas fa-arrow-down refresh-icon" id="refresh-icon"></i>
+            <span class="refresh-text" id="refresh-text">Desliza para actualizar</span>
+        </div>
 
         <!-- Main Content -->
         <main class="main-content">
+            <!-- Tu Dashboard Header existente -->
+            <!-- Reemplaza tu dashboard-header actual con esto -->
+        <div class="dashboard-header">
+            <div class="dashboard-content">
+                <div class="business-profile">
+                    <div class="business-avatar-container">
+                        <img src="../images/logo.png" alt="Business" class="business-avatar">
+                        <div class="avatar-glow"></div>
+                    </div>
+                    <div class="business-info-main">
+                        <div class="business-name-section">
+                            <h1 id="dashboard-business-name" class="business-title">Tu Negocio Demo</h1>
+                            <div class="business-subtitle">Restaurante · Cali, Colombia</div>
+                        </div>
+                        <div class="business-status-section">
+                            <div class="status-badge active">
+                                <div class="status-dot"></div>
+                                <span class="status-text">Activo</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="action-btn" onclick="editBusinessProfile()">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn" onclick="shareProfile()">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+            <!-- El resto de tu contenido existente -->
             <!-- Stats Overview -->
             <div class="stats-section">
                 <h2 data-translate="overview">Resumen General</h2>
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-icon unique-clients">
-                            <i class="fas fa-users"></i>
+                        <div class="stat-card-header">
+                            <div class="stat-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
                         </div>
-                        <div class="stat-info">
-                            <h3 id="unique-clients">0</h3>
-                            <p data-translate="unique_clients">Clientes únicos</p>
-                            <span class="stat-change positive">+12% este mes</span>
-                        </div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <div class="stat-icon recurring-clients">
-                            <i class="fas fa-user-check"></i>
-                        </div>
-                        <div class="stat-info">
-                            <h3 id="recurring-clients">0</h3>
-                            <p data-translate="recurring_clients">Clientes recurrentes</p>
-                            <span class="stat-change positive">+8% este mes</span>
+                        <div class="stat-number" id="unique-clients">0</div>
+                        <div class="stat-label" data-translate="unique_clients">Clientes únicos</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            +12% <span class="stat-period">este mes</span>
                         </div>
                     </div>
                     
                     <div class="stat-card">
-                        <div class="stat-icon active-clients">
-                            <i class="fas fa-user-clock"></i>
+                        <div class="stat-card-header">
+                            <div class="stat-icon">
+                                <i class="fas fa-user-check"></i>
+                            </div>
                         </div>
-                        <div class="stat-info">
-                            <h3 id="active-clients">0</h3>
-                            <p data-translate="active_clients">Clientes activos</p>
-                            <span class="stat-change neutral">7 días</span>
+                        <div class="stat-number" id="recurring-clients">0</div>
+                        <div class="stat-label" data-translate="recurring_clients">Clientes recurrentes</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            +8% <span class="stat-period">este mes</span>
                         </div>
                     </div>
                     
                     <div class="stat-card">
-                        <div class="stat-icon new-clients">
-                            <i class="fas fa-user-plus"></i>
+                        <div class="stat-card-header">
+                            <div class="stat-icon">
+                                <i class="fas fa-user-clock"></i>
+                            </div>
                         </div>
-                        <div class="stat-info">
-                            <h3 id="new-clients">0</h3>
-                            <p data-translate="new_clients">Clientes nuevos</p>
-                            <span class="stat-change positive">+15% este mes</span>
+                        <div class="stat-number" id="active-clients">0</div>
+                        <div class="stat-label" data-translate="active_clients">Clientes activos</div>
+                        <div class="stat-change neutral">
+                            <i class="fas fa-clock"></i>
+                            7 días
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-icon">
+                                <i class="fas fa-user-plus"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number" id="new-clients">0</div>
+                        <div class="stat-label" data-translate="new_clients">Clientes nuevos</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            +15% <span class="stat-period">este mes</span>
                         </div>
                     </div>
                 </div>
@@ -87,45 +670,91 @@
 
             <!-- Quick Actions -->
             <div class="quick-actions">
-                <h2 data-translate="quick_actions">Acciones Rápidas</h2>
-                <div class="action-cards">
-                    <div class="action-card" onclick="navigateTo('dar-estrellas.html')">
+                <h3 data-translate="quick_actions">Acciones Rápidas</h3>
+                <div class="actions-grid">
+                    <a href="dar-estrellas.html" class="action-card">
                         <div class="action-icon">
                             <i class="fas fa-qrcode"></i>
                         </div>
-                        <div class="action-info">
-                            <h3 data-translate="give_stars">Dar Estrellas</h3>
-                            <p data-translate="generate_qr">Generar código QR para puntos</p>
-                        </div>
-                        <div class="action-arrow">
-                            <i class="fas fa-chevron-right"></i>
-                        </div>
-                    </div>
+                        <h4 class="action-title" data-translate="give_stars">Dar Estrellas</h4>
+                        <p class="action-description" data-translate="generate_qr">Generar código QR para puntos</p>
+                    </a>
                     
-                    <div class="action-card" onclick="navigateTo('clientes.html')">
+                    <a href="clientes.html" class="action-card">
                         <div class="action-icon">
                             <i class="fas fa-users"></i>
                         </div>
-                        <div class="action-info">
-                            <h3 data-translate="manage_clients">Gestionar Clientes</h3>
-                            <p data-translate="view_client_history">Ver historial y gestionar puntos</p>
+                        <h4 class="action-title" data-translate="manage_clients">Gestionar Clientes</h4>
+                        <p class="action-description" data-translate="view_client_history">Ver historial y gestionar puntos</p>
+                    </a>
+                    
+                    <a href="perfil-negocio.html" class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-store"></i>
                         </div>
-                        <div class="action-arrow">
-                            <i class="fas fa-chevron-right"></i>
+                        <h4 class="action-title" data-translate="business_profile">Perfil del Negocio</h4>
+                        <p class="action-description">Configurar información y horarios</p>
+                    </a>
+                    
+                    <a href="reportes.html" class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-chart-line"></i>
                         </div>
-                    </div>
+                        <h4 class="action-title">Reportes</h4>
+                        <p class="action-description">Ver estadísticas detalladas</p>
+                    </a>
                 </div>
             </div>
 
             <!-- Recent Activity -->
             <div class="recent-activity">
-                <h2 data-translate="recent_activity">Actividad Reciente</h2>
+                <h3 data-translate="recent_activity">Actividad Reciente</h3>
                 <div class="activity-list" id="activity-list">
                     <!-- Activity items will be populated by JavaScript -->
+                    <div class="activity-item">
+                        <div class="activity-icon earned">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="activity-details">
+                            <div class="activity-description">Juan Pérez ganó 5 estrellas</div>
+                            <div class="activity-time">Hace 2 horas</div>
+                        </div>
+                        <div class="activity-points earned">+5</div>
+                    </div>
+                    
+                    <div class="activity-item">
+                        <div class="activity-icon redeemed">
+                            <i class="fas fa-gift"></i>
+                        </div>
+                        <div class="activity-details">
+                            <div class="activity-description">María González canjeó 10 estrellas</div>
+                            <div class="activity-time">Hace 3 horas</div>
+                        </div>
+                        <div class="activity-points redeemed">-10</div>
+                    </div>
+                    
+                    <div class="activity-item">
+                        <div class="activity-icon earned">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="activity-details">
+                            <div class="activity-description">Carlos Ruiz ganó 3 estrellas</div>
+                            <div class="activity-time">Hace 5 horas</div>
+                        </div>
+                        <div class="activity-points earned">+3</div>
+                    </div>
                 </div>
+                
                 <div class="activity-empty" id="activity-empty" style="display: none;">
                     <i class="fas fa-history"></i>
                     <p data-translate="no_recent_activity">No hay actividad reciente</p>
+                </div>
+                
+                <div class="view-all-activity">
+                    <a href="reportes.html" class="btn-secondary">
+                        <i class="fas fa-eye"></i>
+                        Ver toda la actividad
+                    </a>
                 </div>
             </div>
 
@@ -157,19 +786,6 @@
         </nav>
     </div>
 
-    <!-- Notifications Panel -->
-    <div class="notifications-panel" id="notifications-panel">
-        <div class="notifications-header">
-            <h3 data-translate="notifications">Notificaciones</h3>
-            <button class="close-notifications" onclick="toggleNotifications()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="notifications-list" id="notifications-list">
-            <!-- Notifications will be populated by JavaScript -->
-        </div>
-    </div>
-
     <!-- Scripts -->
     <script src="../js/translations.js"></script>
     <script src="../js/utils.js"></script>
@@ -177,20 +793,60 @@
     <script src="../js/auth.js"></script>
     
     <script>
+        
+
         let currentUser = null;
         let businessData = null;
         let dashboardData = null;
 
         document.addEventListener('DOMContentLoaded', function() {
-            checkAuthentication();
-            updateTexts();
-            loadDashboardData();
-            loadRecentActivity();
-            loadNotifications();
+            // 🔥 Esperar a que Firebase esté listo
+            if (window.auth) {
+                initializeDashboard();
+            } else {
+                // Esperar evento firebaseReady
+                window.addEventListener('firebaseReady', initializeDashboard);
+            }
         });
 
+        // Agregar después de document.addEventListener('DOMContentLoaded'...)
+        function debugFirebaseConnection() {
+            console.log('🔍 DEBUGGING FIREBASE CONNECTION:');
+            console.log('- Firebase disponible:', typeof firebase !== 'undefined');
+            console.log('- window.auth:', !!window.auth);
+            console.log('- window.db:', !!window.db);
+            console.log('- Usuario actual:', window.auth?.currentUser?.uid || 'No autenticado');
+            
+            if (window.auth?.currentUser) {
+                console.log('👤 Usuario:', {
+                    uid: window.auth.currentUser.uid,
+                    email: window.auth.currentUser.email
+                });
+            }
+        }
+
+        // Ejecutar debugging
+        setTimeout(debugFirebaseConnection, 2000);
+
+        function initializeDashboard() {
+            console.log('🚀 Inicializando dashboard...');
+            
+            window.auth.onAuthStateChanged(function(user) {
+                if (user) {
+                    console.log('✅ Usuario autenticado:', user.uid);
+                    currentUser = user;
+                    updateTexts();
+                    loadDashboardData();
+                    loadRecentActivity();
+                    loadNotifications();
+                } else {
+                    console.log('❌ Usuario no autenticado, redirigiendo...');
+                    window.location.href = '../index.html';
+                }
+            });
+        }
+
         function checkAuthentication() {
-            // [ESPACIO FIREBASE AUTH] - Check if admin is logged in
             currentUser = getCurrentUser();
             if (!currentUser) {
                 window.location.href = '../index.html';
@@ -198,27 +854,71 @@
             }
         }
 
+        // REEMPLAZA tu función loadDashboardData() con esta
         async function loadDashboardData() {
             const loading = document.getElementById('loading');
             loading.style.display = 'block';
             
             try {
-                // [ESPACIO FIREBASE ANALYTICS] - Load dashboard statistics
-                dashboardData = await cargarEstadisticas(currentUser.uid);
-                businessData = await getBusinessData(currentUser.uid);
+                console.log('📊 Cargando datos del dashboard para:', currentUser.uid);
                 
-                // Update business info
-                if (businessData) {
-                    document.getElementById('business-name').textContent = businessData.name;
-                    document.getElementById('business-type').textContent = businessData.type;
+                // 1. Cargar datos del negocio
+                businessData = await getBusinessData(currentUser.uid);
+                console.log('✅ Business data loaded:', businessData);
+                
+                // 2. Actualizar TODOS los nombres del negocio en la UI
+                if (businessData && businessData.name) {
+                    const businessName = businessData.name;
+                    console.log('🏢 Actualizando nombre del negocio a:', businessName);
+                    
+                    // Header principal (parte superior)
+                    const businessNameEl = document.getElementById('business-name');
+                    const businessTypeEl = document.getElementById('business-type');
+                    
+                    if (businessNameEl) {
+                        businessNameEl.textContent = businessName;
+                        console.log('✅ Header business-name actualizado');
+                    }
+                    
+                    if (businessTypeEl) {
+                        businessTypeEl.textContent = businessData.type || 'Negocio';
+                        console.log('✅ Header business-type actualizado');
+                    }
+                    
+                    // Dashboard header (sección interna)
+                    const dashboardNameEl = document.getElementById('dashboard-business-name');
+                    if (dashboardNameEl) {
+                        dashboardNameEl.textContent = businessName;
+                        console.log('✅ Dashboard business-name actualizado');
+                    }
+                    
+                    // Actualizar título de la página también
+                    document.title = `${businessName} - Dashboard`;
+                } else {
+                    console.warn('⚠️ No se encontró nombre del negocio en businessData');
                 }
                 
-                // Update statistics
+                updateBusinessHeader(businessData);
+                
+                // 3. Cargar estadísticas
+                dashboardData = await cargarEstadisticas(currentUser.uid);
+                console.log('✅ Dashboard data loaded:', dashboardData);
+                
+                // 4. Actualizar estadísticas en UI
                 updateStatistics();
                 
+                console.log('✅ Dashboard cargado exitosamente');
+                
             } catch (error) {
-                console.error('Error loading dashboard data:', error);
-                showError(error.message);
+                console.error('❌ Error loading dashboard data:', error);
+                showError('Error cargando datos: ' + error.message);
+                
+                // Mostrar datos por defecto en caso de error
+                document.getElementById('unique-clients').textContent = '0';
+                document.getElementById('recurring-clients').textContent = '0';
+                document.getElementById('active-clients').textContent = '0';
+                document.getElementById('new-clients').textContent = '0';
+                
             } finally {
                 loading.style.display = 'none';
             }
@@ -228,6 +928,7 @@
             if (!dashboardData) return;
             
             const metrics = calcularMetricas(dashboardData);
+            console.log('📈 Actualizando métricas:', metrics);
             
             document.getElementById('unique-clients').textContent = metrics.uniqueClients;
             document.getElementById('recurring-clients').textContent = metrics.recurringClients;
@@ -237,8 +938,10 @@
 
         async function loadRecentActivity() {
             try {
-                // [ESPACIO FIREBASE] - Load recent activity
+                console.log('📋 Cargando actividad reciente...');
                 const activities = await getRecentActivity(currentUser.uid);
+                console.log('✅ Actividades cargadas:', activities.length);
+                
                 const activityList = document.getElementById('activity-list');
                 const activityEmpty = document.getElementById('activity-empty');
                 
@@ -252,7 +955,10 @@
                 }
                 
             } catch (error) {
-                console.error('Error loading recent activity:', error);
+                console.error('❌ Error loading recent activity:', error);
+                // Mostrar sección vacía en caso de error
+                document.getElementById('activity-list').style.display = 'none';
+                document.getElementById('activity-empty').style.display = 'block';
             }
         }
 
@@ -288,8 +994,9 @@
 
         async function loadNotifications() {
             try {
-                // [ESPACIO FIREBASE] - Load notifications
+                console.log('🔔 Cargando notificaciones...');
                 const notifications = await getNotifications(currentUser.uid);
+                
                 const notificationCount = document.getElementById('notification-count');
                 const notificationsList = document.getElementById('notifications-list');
                 
@@ -309,7 +1016,7 @@
                 }
                 
             } catch (error) {
-                console.error('Error loading notifications:', error);
+                console.error('❌ Error loading notifications:', error);
             }
         }
 
@@ -339,28 +1046,125 @@
         }
 
         function getCurrentUser() {
-            // [ESPACIO FIREBASE AUTH] - Get current authenticated user
-            return null;
+            return window.auth ? window.auth.currentUser : null;
         }
 
-        // [ESPACIO FIREBASE ANALYTICS] - Firebase functions to implement
+        // 🔥 FUNCIONES FIREBASE OPTIMIZADAS
         async function cargarEstadisticas(businessId) {
-            // Query aggregated statistics from Firestore
-            console.log('Loading statistics for business:', businessId);
+            console.log('📊 Loading statistics for business:', businessId);
             
-            // Return mock data for now
-            return {
-                totalClients: 0,
-                activeClients: 0,
-                newClientsThisMonth: 0,
-                recurringClients: 0,
-                pointsGiven: 0,
-                pointsRedeemed: 0
-            };
+            try {
+                let finalStats = {
+                    totalClients: 0,
+                    activeClients: 0,
+                    recurringClients: 0,
+                    newClientsThisMonth: 0,
+                    pointsGiven: 0,
+                    pointsRedeemed: 0,
+                    totalTransactions: 0
+                };
+
+                // 1. Intentar analytics primero
+                try {
+                    const analyticsDoc = await window.db.collection('analytics').doc(businessId).get();
+                    if (analyticsDoc.exists) {
+                        const analyticsData = analyticsDoc.data();
+                        console.log('📊 Analytics data:', analyticsData);
+                        
+                        // Si analytics tiene datos útiles, usarlos
+                        if (analyticsData.uniqueClients > 0 || analyticsData.totalTransactions > 0) {
+                            finalStats = {
+                                totalClients: analyticsData.uniqueClients || 0,
+                                activeClients: analyticsData.activeClients || 0,
+                                recurringClients: analyticsData.recurringClients || 0,
+                                newClientsThisMonth: analyticsData.newClients || 0,
+                                pointsGiven: analyticsData.pointsGiven || 0,
+                                pointsRedeemed: analyticsData.pointsRedeemed || 0,
+                                totalTransactions: analyticsData.totalTransactions || 0
+                            };
+                            console.log('✅ Usando datos de analytics');
+                            return finalStats;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Error obteniendo analytics:', error);
+                }
+
+                // 2. Si analytics está vacío, usar businesses
+                try {
+                    const businessDoc = await window.db.collection('businesses').doc(businessId).get();
+                    if (businessDoc.exists) {
+                        const businessData = businessDoc.data();
+                        console.log('🏢 Business data:', businessData);
+                        
+                        finalStats = {
+                            totalClients: businessData.totalClients || 0,
+                            activeClients: Math.floor((businessData.totalClients || 0) * 0.3), // 30% estimado
+                            recurringClients: Math.floor((businessData.totalClients || 0) * 0.15), // 15% estimado
+                            newClientsThisMonth: businessData.newClients || Math.floor((businessData.totalClients || 0) * 0.1),
+                            pointsGiven: businessData.totalPointsGiven || 0,
+                            pointsRedeemed: businessData.totalRedemptions || 0,
+                            totalTransactions: businessData.totalTransactions || businessData.totalClients || 0
+                        };
+                        console.log('✅ Usando datos de businesses:', finalStats);
+                        return finalStats;
+                    }
+                } catch (error) {
+                    console.warn('⚠️ Error obteniendo business data:', error);
+                }
+
+                // 3. Fallback: calcular desde transacciones
+                console.log('📊 Calculando desde transacciones...');
+                const transactionsSnapshot = await window.db.collection('transactions')
+                    .where('businessId', '==', businessId)
+                    .limit(100)
+                    .get();
+                
+                if (!transactionsSnapshot.empty) {
+                    const uniqueClients = new Set();
+                    let totalPointsGiven = 0;
+                    let totalPointsRedeemed = 0;
+                    
+                    transactionsSnapshot.forEach(doc => {
+                        const transaction = doc.data();
+                        uniqueClients.add(transaction.userId);
+                        
+                        if (transaction.type === 'earned') {
+                            totalPointsGiven += transaction.points || 0;
+                        } else if (transaction.type === 'redeemed') {
+                            totalPointsRedeemed += transaction.points || 0;
+                        }
+                    });
+                    
+                    finalStats = {
+                        totalClients: uniqueClients.size,
+                        activeClients: Math.floor(uniqueClients.size * 0.3),
+                        recurringClients: Math.floor(uniqueClients.size * 0.15),
+                        newClientsThisMonth: Math.floor(uniqueClients.size * 0.1),
+                        pointsGiven: totalPointsGiven,
+                        pointsRedeemed: totalPointsRedeemed,
+                        totalTransactions: transactionsSnapshot.size
+                    };
+                    console.log('✅ Calculado desde transacciones:', finalStats);
+                }
+                
+                return finalStats;
+                
+            } catch (error) {
+                console.error('❌ Error loading statistics:', error);
+                return {
+                    totalClients: 0,
+                    activeClients: 0,
+                    recurringClients: 0,
+                    newClientsThisMonth: 0,
+                    pointsGiven: 0,
+                    pointsRedeemed: 0,
+                    totalTransactions: 0
+                };
+            }
         }
 
         function calcularMetricas(data) {
-            // Calculate client metrics from raw data
             return {
                 uniqueClients: data.totalClients || 0,
                 recurringClients: data.recurringClients || 0,
@@ -369,28 +1173,129 @@
             };
         }
 
+        // REEMPLAZA tu función getBusinessData() con esta versión
         async function getBusinessData(businessId) {
-            // Get business information from Firestore
-            console.log('Loading business data for:', businessId);
+            console.log('🏢 Loading business data for:', businessId);
             
-            return {
-                name: 'Mi Negocio',
-                type: 'Restaurante'
-            };
+            try {
+                const businessDoc = await window.db.collection('businesses').doc(businessId).get();
+                
+                if (businessDoc.exists) {
+                    const data = businessDoc.data();
+                    console.log('📊 Raw business data from Firebase:', data);
+                    
+                    // Extraer el nombre del negocio con fallbacks
+                    const businessName = data.name || data.businessName || data.companyName || 'Mi Negocio';
+                    
+                    console.log('🏢 Business name extracted:', businessName);
+                    
+                    return {
+                        id: businessDoc.id,
+                        name: businessName,
+                        type: data.type || data.category || 'Negocio',
+                        ...data
+                    };
+                } else {
+                    console.log('❌ Business document not found, creating default');
+                    
+                    // Crear perfil básico si no existe
+                    const defaultBusiness = {
+                        name: 'Mi Negocio Demo',
+                        type: 'Negocio',
+                        email: currentUser?.email || '',
+                        phone: currentUser?.phoneNumber || '',
+                        isActive: true,
+                        totalClients: 0,
+                        totalPointsGiven: 0,
+                        totalRedemptions: 0,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    
+                    await window.db.collection('businesses').doc(businessId).set(defaultBusiness);
+                    console.log('✅ Default business profile created');
+                    
+                    return {
+                        id: businessId,
+                        ...defaultBusiness
+                    };
+                }
+            } catch (error) {
+                console.error('❌ Error loading business data:', error);
+                throw new Error('Error cargando datos del negocio');
+            }
         }
 
         async function getRecentActivity(businessId) {
-            // Get recent activity from Firestore
-            console.log('Loading recent activity for business:', businessId);
+            console.log('📋 Loading recent activity for business:', businessId);
             
-            return [];
+            try {
+                // Simplificar consulta para evitar errores de índice
+                const transactionsSnapshot = await window.db.collection('transactions')
+                    .where('businessId', '==', businessId)
+                    .limit(5)
+                    .get();
+                
+                const activities = [];
+                
+                for (const doc of transactionsSnapshot.docs) {
+                    const transaction = doc.data();
+                    
+                    // Obtener datos del cliente de forma más segura
+                    let clientName = 'Cliente';
+                    try {
+                        if (transaction.userId) {
+                            const userDoc = await window.db.collection('users').doc(transaction.userId).get();
+                            if (userDoc.exists) {
+                                const userData = userDoc.data();
+                                clientName = userData.displayName || userData.email || 'Cliente';
+                                // Limpiar comillas si existen
+                                clientName = clientName.replace(/['"]/g, '');
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ Error loading user data for activity:', error);
+                    }
+                    
+                    let description = '';
+                    let type = '';
+                    
+                    if (transaction.type === 'earned') {
+                        description = `${clientName} ganó ${transaction.points || 0} puntos`;
+                        type = 'points_given';
+                    } else if (transaction.type === 'redeemed') {
+                        description = `${clientName} canjeó ${transaction.points || 0} puntos`;
+                        type = 'points_redeemed';
+                    } else {
+                        description = `${clientName} - Actividad reciente`;
+                        type = 'new_client';
+                    }
+                    
+                    activities.push({
+                        id: doc.id,
+                        type: type,
+                        description: description,
+                        timestamp: transaction.createdAt?.toDate() || new Date()
+                    });
+                }
+                
+                return activities;
+                
+            } catch (error) {
+                console.error('❌ Error loading recent activity:', error);
+                return [];
+            }
         }
 
         async function getNotifications(businessId) {
-            // Get notifications from Firestore
-            console.log('Loading notifications for business:', businessId);
+            console.log('🔔 Loading notifications for business:', businessId);
             
-            return [];
+            try {
+                // Por ahora retornamos array vacío
+                return [];
+            } catch (error) {
+                console.error('❌ Error loading notifications:', error);
+                return [];
+            }
         }
 
         function formatTimeAgo(timestamp) {
@@ -411,15 +1316,294 @@
             }
         }
 
+        // Función updateTexts placeholder
+        function updateTexts() {
+            console.log('🌐 Actualizando textos (implementar translations.js)');
+        }
+
         // Close notifications when clicking outside
         document.addEventListener('click', function(event) {
             const panel = document.getElementById('notifications-panel');
             const notificationBtn = document.querySelector('.notification-btn');
             
-            if (!panel.contains(event.target) && !notificationBtn.contains(event.target)) {
+            if (panel && notificationBtn && !panel.contains(event.target) && !notificationBtn.contains(event.target)) {
                 panel.classList.remove('show');
             }
         });
+
+        // Agregar al final de tu script en dashboard.html
+        function changeLanguage(lang) {
+            console.log('🌍 Cambiando idioma a:', lang);
+            
+            // Guardar idioma en localStorage
+            localStorage.setItem('lang', lang);
+            
+            // Actualizar botones
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById('lang-' + lang).classList.add('active');
+            
+            // Actualizar textos (si tienes función de traducción)
+            if (typeof updateTexts === 'function') {
+                updateTexts();
+            }
+            
+            console.log('✅ Idioma cambiado a:', lang);
+        }
+
+        // Inicializar idioma al cargar
+        function initializeLanguage() {
+            const currentLang = localStorage.getItem('lang') || 'es';
+            const langBtn = document.getElementById('lang-' + currentLang);
+            if (langBtn) {
+                langBtn.classList.add('active');
+            }
+            console.log('🌍 Idioma inicializado:', currentLang);
+        }
+
+        // Ejecutar cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            // Esperar un poco para asegurar que el HTML se ha cargado
+            setTimeout(initializeLanguage, 100);
+        });
+
+        // También ejecutar cuando Firebase esté listo
+        window.addEventListener('firebaseReady', function() {
+            setTimeout(initializeLanguage, 100);
+        });
+
+        // Agregar al final de tu script en dashboard.html
+
+        class PullToRefresh {
+            constructor() {
+                this.startY = 0;
+                this.currentY = 0;
+                this.pulling = false;
+                this.threshold = 100; // Distancia mínima para activar refresh
+                this.maxPull = 120; // Distancia máxima de pull
+                
+                this.pullElement = document.getElementById('pull-to-refresh');
+                this.refreshIcon = document.getElementById('refresh-icon');
+                this.refreshText = document.getElementById('refresh-text');
+                this.mainContent = document.querySelector('.main-content');
+                
+                this.init();
+            }
+            
+            init() {
+                // Solo activar en dispositivos táctiles
+                if ('ontouchstart' in window) {
+                    document.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: true });
+                    document.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+                    document.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: true });
+                }
+                
+                // También para testing en desktop
+                document.addEventListener('mousedown', this.handleMouseStart.bind(this));
+                document.addEventListener('mousemove', this.handleMouseMove.bind(this));
+                document.addEventListener('mouseup', this.handleMouseEnd.bind(this));
+            }
+            
+            handleTouchStart(e) {
+                this.startY = e.touches[0].clientY;
+                this.currentY = this.startY;
+            }
+            
+            handleMouseStart(e) {
+                if (e.clientY < 150) { // Solo cerca del top
+                    this.startY = e.clientY;
+                    this.currentY = this.startY;
+                    this.pulling = true;
+                }
+            }
+            
+            handleTouchMove(e) {
+                if (window.scrollY > 0) return; // Solo cuando está en el top
+                
+                this.currentY = e.touches[0].clientY;
+                const pullDistance = this.currentY - this.startY;
+                
+                if (pullDistance > 0 && pullDistance < this.maxPull) {
+                    e.preventDefault(); // Prevenir scroll
+                    this.updatePullUI(pullDistance);
+                }
+            }
+            
+            handleMouseMove(e) {
+                if (!this.pulling || window.scrollY > 0) return;
+                
+                this.currentY = e.clientY;
+                const pullDistance = this.currentY - this.startY;
+                
+                if (pullDistance > 0 && pullDistance < this.maxPull) {
+                    e.preventDefault();
+                    this.updatePullUI(pullDistance);
+                }
+            }
+            
+            updatePullUI(distance) {
+                const progress = Math.min(distance / this.threshold, 1);
+                
+                // Mostrar el indicador
+                this.pullElement.style.opacity = progress;
+                this.pullElement.style.transform = `translateY(${-60 + (distance * 0.5)}px)`;
+                
+                // Cambiar ícono y texto según el progreso
+                if (progress >= 1) {
+                    this.refreshIcon.className = 'fas fa-arrow-up refresh-icon';
+                    this.refreshText.textContent = 'Suelta para actualizar';
+                    this.pullElement.style.background = 'var(--primary-orange)';
+                } else {
+                    this.refreshIcon.className = 'fas fa-arrow-down refresh-icon';
+                    this.refreshText.textContent = 'Desliza para actualizar';
+                    this.pullElement.style.background = 'var(--gradient-card)';
+                }
+                
+                // Rotar ícono según distancia
+                this.refreshIcon.style.transform = `rotate(${progress * 180}deg)`;
+            }
+            
+            handleTouchEnd(e) {
+                const pullDistance = this.currentY - this.startY;
+                this.handlePullEnd(pullDistance);
+            }
+            
+            handleMouseEnd(e) {
+                if (!this.pulling) return;
+                this.pulling = false;
+                
+                const pullDistance = this.currentY - this.startY;
+                this.handlePullEnd(pullDistance);
+            }
+            
+            handlePullEnd(pullDistance) {
+                if (pullDistance >= this.threshold) {
+                    this.startRefresh();
+                } else {
+                    this.resetPull();
+                }
+            }
+            
+            async startRefresh() {
+                console.log('🔄 Pull to refresh activado');
+                
+                // Mostrar estado de carga
+                this.pullElement.classList.add('show', 'refreshing');
+                this.mainContent.classList.add('pull-refreshing');
+                this.refreshIcon.className = 'fas fa-sync-alt refresh-icon';
+                this.refreshText.textContent = 'Actualizando...';
+                
+                try {
+                    // Recargar datos del dashboard
+                    await this.refreshDashboard();
+                    
+                    // Mostrar éxito brevemente
+                    this.refreshIcon.className = 'fas fa-check refresh-icon';
+                    this.refreshText.textContent = '¡Actualizado!';
+                    
+                    setTimeout(() => {
+                        this.resetPull();
+                    }, 1000);
+                    
+                } catch (error) {
+                    console.error('❌ Error en pull to refresh:', error);
+                    
+                    // Mostrar error
+                    this.refreshIcon.className = 'fas fa-exclamation-triangle refresh-icon';
+                    this.refreshText.textContent = 'Error al actualizar';
+                    
+                    setTimeout(() => {
+                        this.resetPull();
+                    }, 2000);
+                }
+            }
+            
+            async refreshDashboard() {
+                // Simular delay mínimo para UX
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Recargar datos reales
+                if (typeof loadDashboardData === 'function') {
+                    await loadDashboardData();
+                }
+                
+                if (typeof loadRecentActivity === 'function') {
+                    await loadRecentActivity();
+                }
+                
+                console.log('✅ Dashboard actualizado via pull to refresh');
+            }
+            
+            resetPull() {
+                this.pullElement.classList.remove('show', 'refreshing');
+                this.mainContent.classList.remove('pull-refreshing');
+                this.pullElement.style.transform = 'translateY(-60px)';
+                this.pullElement.style.opacity = '0';
+                this.refreshIcon.style.transform = 'rotate(0deg)';
+                
+                // Reset valores
+                this.startY = 0;
+                this.currentY = 0;
+            }
+        }
+
+        // Inicializar Pull to Refresh cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            // Esperar a que todo esté cargado
+            setTimeout(() => {
+                window.pullToRefresh = new PullToRefresh();
+                console.log('✅ Pull to Refresh inicializado');
+            }, 1000);
+        });
+
+        // Agregar estas funciones a tu dashboard.html
+
+        function updateBusinessHeader(businessData) {
+            if (!businessData) return;
+            
+            // Actualizar título principal
+            const titleEl = document.getElementById('dashboard-business-name');
+            if (titleEl && businessData.name) {
+                titleEl.textContent = businessData.name;
+            }
+            
+            // Actualizar subtítulo con ubicación
+            const subtitleEl = document.querySelector('.business-subtitle');
+            if (subtitleEl && businessData.address) {
+                subtitleEl.textContent = `Restaurante · ${businessData.address}`;
+            }
+            
+            // Actualizar contador de clientes en el header
+            const clientsEl = document.getElementById('header-total-clients');
+            if (clientsEl && dashboardData) {
+                clientsEl.textContent = dashboardData.totalClients || 0;
+            }
+        }
+
+        // Funciones para los botones de acción
+        function editBusinessProfile() {
+            console.log('🏢 Editar perfil del negocio');
+            // Redirigir a página de edición o abrir modal
+            window.location.href = 'perfil-negocio.html';
+        }
+
+        function shareProfile() {
+            console.log('📤 Compartir perfil');
+            if (navigator.share) {
+                navigator.share({
+                    title: businessData?.name || 'Mi Negocio',
+                    text: 'Visita nuestro negocio y gana estrellas',
+                    url: window.location.origin
+                });
+            } else {
+                // Fallback para navegadores sin Web Share API
+                const url = window.location.origin;
+                navigator.clipboard.writeText(url).then(() => {
+                    alert('¡Enlace copiado al portapapeles!');
+                });
+            }
+        }
     </script>
 </body>
 </html>

@@ -4,10 +4,346 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MisEstrellas - Mapa</title>
+    <!-- SDKs de Firebase compatibles con navegadores normales (sin bundler) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+
+    <!-- Mapbox SDK -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="../css/components.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
+<style>
+    :root {
+        /* Variables principales que faltan */
+        --bg-black: #0F0F0F;
+        --text-white: #FFFFFF;
+        --success-green: #4CAF50;
+        --error-red: #F44336;
+        --warning-yellow: #FFC107;
+        
+        /* Colores mejorados */
+        --primary-orange: #FF8C42;
+        --hover-orange: #FF7A2B;
+        --accent-orange: #FFA366;
+        --dark-orange: #E67A35;
+        
+        /* Tonos cálidos en lugar de grises */
+        --warm-gray: #2A2A2A;
+        --light-warm: #363636;
+        --card-warm: #1F1F1F;
+        --border-warm: #404040;
+        --secondary-gray: #AAA;
+        
+        /* Gradientes */
+        --gradient-card: linear-gradient(135deg, #1F1F1F 0%, #2A2A2A 100%);
+        --gradient-orange: linear-gradient(135deg, #FF8C42 0%, #FFA366 100%);
+        --gradient-dark: linear-gradient(135deg, #0F0F0F 0%, #1F1F1F 100%);
+        
+        /* Actualizar variables existentes */
+        --card-bg: var(--gradient-card);
+        --border-color: var(--border-warm);
+        --input-bg: var(--warm-gray);
+        --shadow-dark: rgba(0, 0, 0, 0.3);
+        --shadow-orange: rgba(255, 140, 66, 0.2);
+    }
+
+    .marker {
+        background-repeat: no-repeat;
+        background-position: center;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+
+    .marker:hover {
+        transform: scale(1.1);
+    }
+
+    /* Estilos para el buscador con sugerencias */
+    .search-section {
+        position: relative;
+        margin-bottom: 20px;
+    }
+
+    .search-bar {
+        display: flex;
+        align-items: center;
+        background: var(--card-warm);
+        border-radius: 25px;
+        padding: 12px 20px;
+        box-shadow: 0 4px 15px var(--shadow-dark);
+        position: relative;
+    }
+
+    .search-bar i {
+        color: var(--secondary-gray);
+        margin-right: 12px;
+    }
+
+    .search-bar input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--text-white);
+        font-size: 16px;
+        outline: none;
+    }
+
+    .search-bar input::placeholder {
+        color: var(--secondary-gray);
+    }
+
+    .location-btn {
+        background: var(--primary-orange);
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+
+    .location-btn:hover {
+        background: var(--hover-orange);
+    }
+
+    /* Sugerencias de búsqueda */
+    .search-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--card-warm);
+        border-radius: 15px;
+        margin-top: 8px;
+        box-shadow: 0 8px 25px var(--shadow-dark);
+        z-index: 1000;
+        max-height: 300px;
+        overflow-y: auto;
+        display: none;
+    }
+
+    .suggestion-item {
+        padding: 15px 20px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--border-warm);
+        transition: background 0.2s ease;
+        display: flex;
+        align-items: center;
+    }
+
+    .suggestion-item:hover {
+        background: var(--light-warm);
+    }
+
+    .suggestion-item:last-child {
+        border-bottom: none;
+    }
+
+    .suggestion-icon {
+        color: var(--primary-orange);
+        margin-right: 12px;
+        width: 20px;
+    }
+
+    .suggestion-text {
+        flex: 1;
+    }
+
+    .suggestion-name {
+        color: var(--text-white);
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+
+    .suggestion-address {
+        color: var(--secondary-gray);
+        font-size: 14px;
+    }
+
+    /* Popup personalizado */
+    .mapboxgl-popup-content {
+        background: var(--card-warm) !important;
+        color: var(--text-white) !important;
+        border-radius: 12px !important;
+        padding: 20px !important;
+        box-shadow: 0 8px 25px var(--shadow-dark) !important;
+        border: 1px solid var(--border-warm) !important;
+    }
+
+    .mapboxgl-popup-close-button {
+        color: var(--text-white) !important;
+        font-size: 20px !important;
+        padding: 5px !important;
+    }
+
+    .popup-content {
+        text-align: center;
+    }
+
+    .popup-title {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: var(--text-white);
+    }
+
+    .popup-address {
+        color: var(--secondary-gray);
+        margin-bottom: 15px;
+        font-size: 14px;
+    }
+
+    .popup-btn {
+        background: var(--gradient-orange);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 25px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .popup-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px var(--shadow-orange);
+    }
+
+    /* Estilos del contenedor del mapa */
+    .map-container {
+        position: relative;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 8px 25px var(--shadow-dark);
+        margin-bottom: 20px;
+    }
+
+    .map {
+        width: 100%;
+        height: 400px;
+    }
+
+    /* Botón de mi ubicación */
+    .my-location-btn {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        z-index: 999;
+        background: var(--gradient-orange);
+        color: white;
+        border: none;
+        padding: 12px;
+        border-radius: 50%;
+        box-shadow: 0 4px 15px var(--shadow-orange);
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .my-location-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px var(--shadow-orange);
+    }
+
+    /* Loading overlay */
+    .map-loading {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 15, 15, 0.9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        border-radius: 20px;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid var(--border-warm);
+        border-top: 4px solid var(--primary-orange);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 15px;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Personalizar la marca de agua de Mapbox */
+    .mapboxgl-ctrl-attrib {
+        background: rgba(15, 15, 15, 0.8) !important;
+        color: var(--secondary-gray) !important;
+        font-size: 11px !important;
+        padding: 4px 8px !important;
+        border-radius: 8px !important;
+        backdrop-filter: blur(10px) !important;
+        border: 1px solid var(--border-warm) !important;
+    }
+
+    .mapboxgl-ctrl-attrib a {
+        color: var(--primary-orange) !important;
+        text-decoration: none !important;
+    }
+
+    .mapboxgl-ctrl-attrib a:hover {
+        color: var(--hover-orange) !important;
+    }
+
+    /* Botón de información de Mapbox */
+    .mapboxgl-ctrl-attrib-button {
+        background: var(--primary-orange) !important;
+        color: white !important;
+        border-radius: 50% !important;
+        width: 20px !important;
+        height: 20px !important;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .search-bar {
+            padding: 10px 15px;
+        }
+        
+        .suggestion-item {
+            padding: 12px 15px;
+        }
+        
+        .map {
+            height: 350px;
+        }
+
+        /* Hacer la marca de agua más pequeña en móvil */
+        .mapboxgl-ctrl-attrib {
+            font-size: 10px !important;
+            padding: 3px 6px !important;
+        }
+    }
+</style>
 <body>
     <div class="container">
         <!-- Header -->
@@ -33,53 +369,25 @@
                     <i class="fas fa-location-arrow"></i>
                 </button>
             </div>
+            
+            <!-- Sugerencias de búsqueda -->
+            <div class="search-suggestions" id="search-suggestions">
+                <!-- Las sugerencias se llenarán dinámicamente -->
+            </div>
         </div>
 
         <!-- Map Container -->
         <div class="map-container">
             <div id="map" class="map"></div>
-            
+
+            <button class="my-location-btn" onclick="focusUserLocation()">
+                <i class="fas fa-location-arrow"></i>
+            </button>
+
             <!-- Loading Overlay -->
             <div class="map-loading" id="map-loading">
                 <div class="spinner"></div>
                 <p data-translate="loading_map">Cargando mapa...</p>
-            </div>
-        </div>
-
-        <!-- Business Info Card -->
-        <div class="business-info-card" id="business-info-card" style="display: none;">
-            <div class="card-header">
-                <div class="business-image">
-                    <img id="card-business-image" src="" alt="Business">
-                </div>
-                <div class="business-details">
-                    <h3 id="card-business-name"></h3>
-                    <p id="card-business-address"></p>
-                    <div class="business-rating">
-                        <i class="fas fa-star"></i>
-                        <span id="card-business-rating">4.5</span>
-                        <span class="rating-count">(<span id="card-rating-count">120</span>)</span>
-                    </div>
-                </div>
-                <button class="close-card-btn" onclick="closeBusinessCard()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="card-body">
-                <div class="business-actions">
-                    <button class="action-btn" onclick="goToBusiness()">
-                        <i class="fas fa-directions"></i>
-                        <span data-translate="directions">Ir al negocio</span>
-                    </button>
-                    <button class="action-btn" onclick="callBusiness()">
-                        <i class="fas fa-phone"></i>
-                        <span data-translate="call">Llamar</span>
-                    </button>
-                    <button class="action-btn" onclick="viewBusinessInfo()">
-                        <i class="fas fa-info-circle"></i>
-                        <span data-translate="info">Información</span>
-                    </button>
-                </div>
             </div>
         </div>
 
@@ -117,310 +425,453 @@
         let businesses = [];
         let userLocation = null;
         let selectedBusiness = null;
+        let searchTimeout = null;
 
         document.addEventListener('DOMContentLoaded', function() {
             checkAuthentication();
             updateTexts();
-            initializeMap();
             setupSearchFunctionality();
         });
 
         function checkAuthentication() {
-            // [ESPACIO FIREBASE AUTH] - Check if user is logged in
-            currentUser = getCurrentUser();
-            if (!currentUser) {
-                window.location.href = '../index.html';
+            const simulatedUser = localStorage.getItem('simulatedUser');
+
+            if (simulatedUser) {
+                try {
+                    const user = JSON.parse(simulatedUser);
+                    currentUser = user;
+                    console.log("🧪 Usuario simulado detectado:", user.uid);
+                    initializeMap();
+                } catch (e) {
+                    console.warn("❌ Error con usuario simulado:", e);
+                    window.location.href = '../index.html';
+                }
                 return;
             }
+
+            firebase.auth().onAuthStateChanged(function(user) {
+                if (user) {
+                    currentUser = user;
+                    console.log("✅ Usuario autenticado:", user.uid);
+                    initializeMap();
+                } else {
+                    console.warn("❌ No hay usuario autenticado. Redirigiendo...");
+                    window.location.href = '../index.html';
+                }
+            });
         }
 
         function initializeMap() {
-            // Show loading
             document.getElementById('map-loading').style.display = 'flex';
-            
-            // [ESPACIO MAPS] - Initialize Google Maps
-            // For now, we'll create a placeholder map
-            createPlaceholderMap();
-            
-            // Load businesses
-            loadBusinesses();
-        }
 
-        function createPlaceholderMap() {
-            // Placeholder map implementation
-            const mapElement = document.getElementById('map');
-            mapElement.innerHTML = `
-                <div class="map-placeholder">
-                    <i class="fas fa-map-marked-alt"></i>
-                    <p data-translate="map_placeholder">Mapa se cargará aquí con Google Maps API</p>
-                    <p class="map-note" data-translate="map_note">Integrar con Google Maps JavaScript API</p>
-                </div>
-            `;
-            
-            // Hide loading after a delay
-            setTimeout(() => {
-                document.getElementById('map-loading').style.display = 'none';
-            }, 1000);
-        }
+            mapboxgl.accessToken = 'pk.eyJ1Ijoic2FudGljdXNpMTciLCJhIjoiY21kZ2cyMnhpMDJhOTJpb2c2YzA4Z3d4aiJ9.Q0GxbKWhbpRpuQboXiKYRQ';
 
-        async function initGoogleMap() {
-            // [ESPACIO MAPS + FIREBASE] - Initialize Google Maps
-            try {
-                // Initialize map centered on user location or default location
-                const defaultLocation = { lat: 4.7110, lng: -74.0721 }; // Bogotá, Colombia
-                
-                map = new google.maps.Map(document.getElementById('map'), {
-                    center: defaultLocation,
-                    zoom: 13,
-                    styles: [
-                        // Dark theme map styles
-                        {
-                            elementType: 'geometry',
-                            stylers: [{ color: '#1A1A1A' }]
-                        },
-                        {
-                            elementType: 'labels.text.fill',
-                            stylers: [{ color: '#FFFFFF' }]
-                        },
-                        {
-                            elementType: 'labels.text.stroke',
-                            stylers: [{ color: '#1A1A1A' }]
-                        }
-                    ]
-                });
-                
-                // Get user location
+            const defaultLocation = [-76.5319, 3.4516]; // Cali (lng, lat)
+
+            map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mapbox/dark-v11',
+                center: defaultLocation,
+                zoom: 13
+            });
+
+            map.on('load', async () => {
                 await getCurrentLocation();
-                
-                // Load and display businesses
                 await loadBusinesses();
-                
                 document.getElementById('map-loading').style.display = 'none';
-                
-            } catch (error) {
-                console.error('Error initializing map:', error);
-                document.getElementById('map-loading').style.display = 'none';
-                showError(t('map_error'));
-            }
+            });
         }
 
         async function getCurrentLocation() {
             try {
-                const position = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                // Obtener ubicación real del usuario para centrarse
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        userLocation = [lng, lat];
+                        
+                        // Crear marcador de ubicación del usuario
+                        const userMarker = document.createElement('div');
+                        userMarker.className = 'marker';
+                        userMarker.style.backgroundImage = 'url(../images/cliente-location.png)';
+                        userMarker.style.width = '30px';
+                        userMarker.style.height = '30px';
+                        userMarker.style.backgroundSize = 'cover';
+                        userMarker.style.border = '3px solid #4CAF50';
+
+                        new mapboxgl.Marker(userMarker)
+                            .setLngLat(userLocation)
+                            .setPopup(new mapboxgl.Popup().setText('Tu ubicación'))
+                            .addTo(map);
+
+                        // Centrar el mapa en la ubicación del usuario
+                        map.flyTo({
+                            center: userLocation,
+                            zoom: 14
+                        });
+                    },
+                    (error) => {
+                        console.warn('No se pudo obtener ubicación del usuario:', error);
+                        // Usar ubicación por defecto (Cali)
+                        userLocation = [-76.5319, 3.4516];
+                    },
+                    {
                         enableHighAccuracy: true,
                         timeout: 10000,
                         maximumAge: 300000
-                    });
-                });
-                
-                userLocation = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude
-                };
-                
-                if (map) {
-                    // Center map on user location
-                    map.setCenter(userLocation);
-                    
-                    // Add user location marker
-                    new google.maps.Marker({
-                        position: userLocation,
-                        map: map,
-                        icon: {
-                            url: '../images/user-location.svg',
-                            scaledSize: new google.maps.Size(30, 30)
-                        },
-                        title: t('your_location')
-                    });
-                }
-                
+                    }
+                );
             } catch (error) {
-                console.error('Error getting location:', error);
-                showError(t('location_error'));
+                console.error('Error obteniendo ubicación:', error);
+                userLocation = [-76.5319, 3.4516]; // Fallback a Cali
             }
+        }
+
+        function focusUserLocation() {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const actualLocation = [lng, lat];
+
+                    map.flyTo({
+                        center: actualLocation,
+                        zoom: 16,
+                        speed: 1.2
+                    });
+
+                    // Mostrar mensaje temporal
+                    showMessage('Centrado en tu ubicación actual');
+                },
+                (error) => {
+                    console.error('Error obteniendo ubicación actual:', error);
+                    showError('No se pudo obtener tu ubicación actual');
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 300000
+                }
+            );
         }
 
         async function loadBusinesses() {
             try {
-                // [ESPACIO FIREBASE] - Load businesses from Firestore
+                // Cargar todos los negocios desde Firebase
                 businesses = await cargarNegocios();
+                console.log('✅ Negocios cargados:', businesses.length);
                 
-                // Display businesses on map
+                // Mostrar marcadores en el mapa
                 displayBusinessMarkers();
                 
             } catch (error) {
                 console.error('Error loading businesses:', error);
-                showError(t('businesses_error'));
+                showError('Error al cargar los negocios');
             }
         }
 
         function displayBusinessMarkers() {
-            // Clear existing markers
-            markers.forEach(marker => marker.setMap(null));
+            // Limpiar marcadores existentes (excepto el del usuario)
+            markers.forEach(marker => marker.remove());
             markers = [];
-            
+
             businesses.forEach(business => {
-                const marker = new google.maps.Marker({
-                    position: { lat: business.lat, lng: business.lng },
-                    map: map,
-                    icon: {
-                        url: '../images/business-marker.svg',
-                        scaledSize: new google.maps.Size(40, 40)
-                    },
-                    title: business.name
-                });
-                
-                marker.addListener('click', () => {
-                    showBusinessCard(business);
-                });
-                
+                if (!business.lat || !business.lng) {
+                    console.warn('Negocio sin coordenadas:', business.name);
+                    return;
+                }
+
+                // Crear marcador personalizado
+                const el = document.createElement('div');
+                el.className = 'marker';
+                el.style.backgroundImage = 'url(../images/user-location.png)';
+                el.style.width = '40px';
+                el.style.height = '40px';
+                el.style.backgroundSize = 'cover';
+                el.style.border = '2px solid #FF8C42';
+
+                // Crear popup personalizado
+                const popupContent = `
+                    <div class="popup-content">
+                        <div class="popup-title">${business.name}</div>
+                        <div class="popup-address">${business.address}</div>
+                        <button class="popup-btn" onclick="goToBusiness(${business.lat}, ${business.lng}, '${business.name}')">
+                            <i class="fas fa-directions"></i>
+                            Ir al negocio
+                        </button>
+                    </div>
+                `;
+
+                const popup = new mapboxgl.Popup({
+                    offset: 25,
+                    closeOnClick: true,
+                    maxWidth: '300px'
+                }).setHTML(popupContent);
+
+                const marker = new mapboxgl.Marker(el)
+                    .setLngLat([business.lng, business.lat])
+                    .setPopup(popup)
+                    .addTo(map);
+
                 markers.push(marker);
             });
-        }
 
-        function showBusinessCard(business) {
-            selectedBusiness = business;
-            const card = document.getElementById('business-info-card');
-            
-            // Populate card with business data
-            document.getElementById('card-business-name').textContent = business.name;
-            document.getElementById('card-business-address').textContent = business.address;
-            document.getElementById('card-business-image').src = business.image || '../images/default-business.svg';
-            document.getElementById('card-business-rating').textContent = business.rating || '4.5';
-            document.getElementById('card-rating-count').textContent = business.ratingCount || '120';
-            
-            card.style.display = 'block';
-            
-            // Animate card in
-            setTimeout(() => {
-                card.classList.add('show');
-            }, 10);
-        }
-
-        function closeBusinessCard() {
-            const card = document.getElementById('business-info-card');
-            card.classList.remove('show');
-            
-            setTimeout(() => {
-                card.style.display = 'none';
-            }, 300);
-        }
-
-        function goToBusiness() {
-            if (selectedBusiness && selectedBusiness.mapsUrl) {
-                window.open(selectedBusiness.mapsUrl, '_blank');
-            } else if (selectedBusiness) {
-                const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedBusiness.lat},${selectedBusiness.lng}`;
-                window.open(url, '_blank');
-            }
-        }
-
-        function callBusiness() {
-            if (selectedBusiness && selectedBusiness.phone) {
-                window.location.href = `tel:${selectedBusiness.phone}`;
-            }
-        }
-
-        function viewBusinessInfo() {
-            // Could open a detailed business modal or navigate to business page
-            alert(t('feature_coming_soon'));
+            console.log(`✅ ${markers.length} marcadores añadidos al mapa`);
         }
 
         function setupSearchFunctionality() {
             const searchInput = document.getElementById('search-input');
-            let searchTimeout;
+            const suggestionsContainer = document.getElementById('search-suggestions');
             
             searchInput.addEventListener('input', function() {
+                const query = this.value.trim();
+                
                 clearTimeout(searchTimeout);
+                
+                if (query.length === 0) {
+                    hideSuggestions();
+                    displayBusinessMarkers(); // Mostrar todos los marcadores
+                    return;
+                }
+
                 searchTimeout = setTimeout(() => {
-                    searchBusinesses(this.value);
+                    showSuggestions(query);
                 }, 300);
+            });
+
+            // Cerrar sugerencias al hacer clic fuera
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
+                    hideSuggestions();
+                }
+            });
+
+            // Manejar tecla Enter
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const query = this.value.trim();
+                    if (query) {
+                        searchAndFocus(query);
+                        hideSuggestions();
+                    }
+                }
             });
         }
 
-        function searchBusinesses(query) {
-            if (!query.trim()) {
-                displayBusinessMarkers();
-                return;
-            }
+        function showSuggestions(query) {
+            const suggestionsContainer = document.getElementById('search-suggestions');
             
+            // Filtrar negocios que coincidan con la búsqueda
             const filteredBusinesses = businesses.filter(business => 
                 business.name.toLowerCase().includes(query.toLowerCase()) ||
                 business.address.toLowerCase().includes(query.toLowerCase())
-            );
-            
-            // Update map markers
-            displayFilteredMarkers(filteredBusinesses);
+            ).slice(0, 5); // Limitar a 5 sugerencias
+
+            if (filteredBusinesses.length === 0) {
+                suggestionsContainer.innerHTML = `
+                    <div class="suggestion-item">
+                        <div class="suggestion-icon">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div class="suggestion-text">
+                            <div class="suggestion-name">No se encontraron resultados</div>
+                            <div class="suggestion-address">Intenta con otro término de búsqueda</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                suggestionsContainer.innerHTML = filteredBusinesses.map(business => `
+                    <div class="suggestion-item" onclick="selectBusiness('${business.id}')">
+                        <div class="suggestion-icon">
+                            <i class="fas fa-store"></i>
+                        </div>
+                        <div class="suggestion-text">
+                            <div class="suggestion-name">${business.name}</div>
+                            <div class="suggestion-address">${business.address}</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            suggestionsContainer.style.display = 'block';
         }
 
-        function displayFilteredMarkers(filteredBusinesses) {
-            // Clear existing markers
-            markers.forEach(marker => marker.setMap(null));
-            markers = [];
-            
-            filteredBusinesses.forEach(business => {
-                const marker = new google.maps.Marker({
-                    position: { lat: business.lat, lng: business.lng },
-                    map: map,
-                    icon: {
-                        url: '../images/business-marker.svg',
-                        scaledSize: new google.maps.Size(40, 40)
-                    },
-                    title: business.name
-                });
-                
-                marker.addListener('click', () => {
-                    showBusinessCard(business);
-                });
-                
-                markers.push(marker);
+        function hideSuggestions() {
+            const suggestionsContainer = document.getElementById('search-suggestions');
+            suggestionsContainer.style.display = 'none';
+        }
+
+        function selectBusiness(businessId) {
+            const business = businesses.find(b => b.id === businessId);
+            if (!business) return;
+
+            // Limpiar input y ocultar sugerencias
+            document.getElementById('search-input').value = business.name;
+            hideSuggestions();
+
+            // Centrar mapa en el negocio
+            map.flyTo({
+                center: [business.lng, business.lat],
+                zoom: 16,
+                speed: 1.2
             });
+
+            // Encontrar y abrir el popup del marcador
+            setTimeout(() => {
+                const marker = markers.find(m => {
+                    const lngLat = m.getLngLat();
+                    return Math.abs(lngLat.lng - business.lng) < 0.0001 && 
+                           Math.abs(lngLat.lat - business.lat) < 0.0001;
+                });
+                
+                if (marker && marker.getPopup()) {
+                    marker.togglePopup();
+                }
+            }, 1000);
+        }
+
+        function searchAndFocus(query) {
+            const business = businesses.find(b => 
+                b.name.toLowerCase().includes(query.toLowerCase())
+            );
+
+            if (business) {
+                selectBusiness(business.id);
+            } else {
+                showError('Negocio no encontrado');
+            }
+        }
+
+        function goToBusiness(lat, lng, name) {
+            // Abrir Google Maps con direcciones
+            const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&destination_place_id=${encodeURIComponent(name)}`;
+            window.open(url, '_blank');
+            
+            // Mostrar mensaje de confirmación
+            showMessage(`Abriendo ruta hacia ${name}`);
         }
 
         function showError(message) {
-            alert(message);
+            // Crear notificación de error
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: var(--error-red);
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                z-index: 10000;
+                font-weight: 500;
+                box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function showMessage(message) {
+            // Crear notificación de éxito
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: var(--success-green);
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                z-index: 10000;
+                font-weight: 500;
+                box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Firebase functions
+        async function cargarNegocios() {
+            try {
+                // Cambié 'negocios' por 'businesses' para que coincida con tu colección
+                const negociosSnapshot = await firebase.firestore().collection('businesses').get();
+                const negocios = negociosSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        name: data.name || 'Negocio sin nombre',
+                        address: data.address || 'Sin dirección',
+                        lat: data.coordinates?.latitude,
+                        lng: data.coordinates?.longitude,
+                        image: data.image || null,
+                        rating: data.rating || 0,
+                        ratingCount: data.ratingCount || 0,
+                        phone: data.phone || '',
+                        mapsUrl: data.mapsUrl || ''
+                    };
+                }).filter(business => business.lat && business.lng); // Solo negocios con coordenadas
+
+                console.log('✅ Negocios cargados desde Firebase:', negocios);
+                return negocios;
+            } catch (error) {
+                console.error('🔥 Error al cargar negocios desde Firestore:', error);
+                
+                // Datos de prueba en caso de error
+                return [
+                    {
+                        id: '1',
+                        name: 'Restaurante El Buen Sabor',
+                        address: 'Calle 15 #10-25, Cali',
+                        lat: 3.4516,
+                        lng: -76.5319,
+                        rating: 4.5,
+                        ratingCount: 120
+                    },
+                    {
+                        id: '2',
+                        name: 'Café Central',
+                        address: 'Carrera 5 #12-30, Cali',
+                        lat: 3.4556,
+                        lng: -76.5289,
+                        rating: 4.2,
+                        ratingCount: 85
+                    },
+                    {
+                        id: '3',
+                        name: 'Pizzería La Torre',
+                        address: 'Avenida 6N #25-15, Cali',
+                        lat: 3.4476,
+                        lng: -76.5349,
+                        rating: 4.7,
+                        ratingCount: 200
+                    }
+                ];
+            }
         }
 
         function getCurrentUser() {
-            // [ESPACIO FIREBASE AUTH] - Get current authenticated user
-            return null;
+            return firebase.auth().currentUser;
         }
 
-        // [ESPACIO FIREBASE] - Firebase functions to implement
-        async function cargarNegocios() {
-            // Query businesses from Firestore
-            console.log('Loading businesses from Firebase');
-            
-            // Temporary mock data - replace with Firebase query
-            return [
-                {
-                    id: '1',
-                    name: 'Restaurante La Estrella',
-                    address: 'Calle 85 #15-20, Bogotá',
-                    lat: 4.7110,
-                    lng: -74.0721,
-                    image: null,
-                    rating: 4.5,
-                    ratingCount: 120,
-                    phone: '+571234567890',
-                    mapsUrl: 'https://maps.google.com/?q=4.7110,-74.0721'
-                }
-            ];
+        // Función auxiliar para traducir textos (placeholder)
+        function updateTexts() {
+            // Implementar lógica de traducción si es necesario
+            console.log('Actualizando textos...');
         }
 
-        // Load Google Maps API
-        function loadGoogleMaps() {
-            // [ESPACIO MAPS] - Load Google Maps JavaScript API
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initGoogleMap`;
-            script.async = true;
-            script.defer = true;
-            document.head.appendChild(script);
+        function changeLanguage(lang) {
+            // Implementar cambio de idioma
+            console.log('Cambiando idioma a:', lang);
         }
-
-        // Uncomment to load Google Maps
-        // loadGoogleMaps();
     </script>
 </body>
 </html>
