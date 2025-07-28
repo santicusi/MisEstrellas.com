@@ -572,7 +572,7 @@
                     <div class="status-icon">
                         <i class="fas fa-qrcode"></i>
                     </div>
-                    <p class="status-text" id="status-text">Buscando código QR...</p>
+                    <p class="status-text" id="status-text">Inicializando...</p>
                 </div>
             </div>
 
@@ -688,7 +688,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     
     <script>
@@ -713,6 +712,32 @@
         let animationId;
         let currentUser = null;
         let qrProcessingData = null;
+        let jsQR = null; // Variable para la librería
+
+        // ==========================================
+        // CARGA DE LIBRERÍA jsQR
+        // ==========================================
+        async function loadJsQR() {
+            return new Promise((resolve, reject) => {
+                console.log('📚 Cargando librería jsQR...');
+                
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
+                script.onload = () => {
+                    if (typeof window.jsQR !== 'undefined') {
+                        jsQR = window.jsQR;
+                        console.log('✅ jsQR cargado correctamente');
+                        resolve();
+                    } else {
+                        reject(new Error('jsQR no se cargó correctamente'));
+                    }
+                };
+                script.onerror = () => {
+                    reject(new Error('Error cargando jsQR'));
+                };
+                document.head.appendChild(script);
+            });
+        }
 
         // ==========================================
         // INICIALIZACIÓN
@@ -721,6 +746,12 @@
             console.log('🚀 Inicializando aplicación...');
             
             try {
+                updateStatus('loading', 'fas fa-spinner fa-spin');
+                
+                // Cargar jsQR primero
+                await loadJsQR();
+                console.log('✅ jsQR cargado');
+                
                 // Inicializar Firebase
                 await initializeFirebase();
                 console.log('✅ Firebase inicializado');
@@ -737,18 +768,8 @@
                 
             } catch (error) {
                 console.error('❌ Error en inicialización:', error);
-                
-                // NO usar showError que puede redirigir, usar alert temporal
-                alert('Error: ' + error.message);
-                
-                // Mostrar error en pantalla también
-                const statusText = document.getElementById('status-text');
-                if (statusText) {
-                    statusText.textContent = 'ERROR: ' + error.message;
-                    statusText.className = 'status-text error';
-                }
-                
-                // QUEDARSE en la página para debug
+                showError('Error: ' + error.message);
+                updateStatus('error', 'fas fa-exclamation-triangle');
             }
         });
 
@@ -787,7 +808,7 @@
         async function checkAuthentication() {
             console.log('🔐 Verificando autenticación...');
             
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 const unsubscribe = auth.onAuthStateChanged((user) => {
                     unsubscribe();
                     
@@ -826,7 +847,7 @@
                 throw new Error('Elementos de video o canvas no encontrados');
             }
             
-            canvasContext = canvasElement.getContext('2d');
+            canvasContext = canvasElement.getContext('2d', { willReadFrequently: true });
 
             try {
                 await startCamera();
@@ -834,10 +855,7 @@
                 console.log('✅ Escáner inicializado correctamente');
             } catch (error) {
                 console.error('❌ Error inicializando escáner:', error);
-                showError('Error: ' + error.message);
-                
-                // Mostrar mensaje en lugar de redirigir
-                updateStatus('error', 'fas fa-exclamation-triangle');
+                throw error;
             }
         }
 
@@ -901,7 +919,7 @@
         }
 
         function startScanning() {
-            if (!isScanning) {
+            if (!isScanning && jsQR) {
                 console.log('👁️ Iniciando escaneo...');
                 isScanning = true;
                 scanFrame();
@@ -917,7 +935,7 @@
         }
 
         function scanFrame() {
-            if (!isScanning) return;
+            if (!isScanning || !jsQR) return;
 
             try {
                 if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
@@ -927,7 +945,7 @@
                     // Obtener datos de imagen
                     const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
                     
-                    // Buscar código QR
+                    // Buscar código QR usando jsQR
                     const code = jsQR(imageData.data, imageData.width, imageData.height, {
                         inversionAttempts: "dontInvert"
                     });
@@ -1174,7 +1192,6 @@
             const statusIcon = document.querySelector('.status-icon i');
             const statusText = document.getElementById('status-text');
             
-            // VERIFICAR que los elementos existan antes de usarlos
             if (!statusIcon || !statusText) {
                 console.warn('⚠️ Elementos de status no encontrados');
                 return;
@@ -1183,6 +1200,10 @@
             statusIcon.className = iconClass;
             
             switch (status) {
+                case 'loading':
+                    statusText.textContent = 'Cargando...';
+                    statusText.className = 'status-text processing';
+                    break;
                 case 'scanning':
                     statusText.textContent = 'Buscando código QR...';
                     statusText.className = 'status-text';
@@ -1251,26 +1272,17 @@
         function showError(message) {
             console.error('🚨 Mostrando error:', message);
             
-            // Verificar que los elementos existan
             const errorMessage = document.getElementById('error-message');
             const errorModal = document.getElementById('error-modal');
-            const statusText = document.getElementById('status-text');
             
             if (errorMessage && errorModal) {
                 errorMessage.textContent = message;
                 errorModal.classList.add('show');
-            }
-            
-            if (statusText) {
-                statusText.textContent = 'ERROR: ' + message;
-                statusText.className = 'status-text error';
-            }
-            
-            // Fallback: mostrar en alert si no hay elementos
-            if (!errorMessage || !errorModal || !statusText) {
+            } else {
                 alert('Error: ' + message);
             }
         }
+
         function closeErrorModal() {
             document.getElementById('error-modal').classList.remove('show');
             // Reanudar escaneo
@@ -1337,7 +1349,7 @@
         document.addEventListener('visibilitychange', function() {
             if (document.hidden) {
                 stopScanning();
-            } else if (currentStream && !isScanning) {
+            } else if (currentStream && !isScanning && jsQR) {
                 startScanning();
             }
         });
@@ -1367,20 +1379,6 @@
             processQR(testQR);
         };
 
-        console.log('🎉 Escáner QR cargado completamente');
-        console.log('💡 Para pruebas usa: testQR() o generateTestQR()');
-
-        // Debug: capturar errores no manejados
-        window.addEventListener('error', function(e) {
-            console.error('🚨 Error global capturado:', e.error);
-            showError('Error inesperado: ' + e.error.message);
-        });
-
-        window.addEventListener('unhandledrejection', function(e) {
-            console.error('🚨 Promise rechazada no manejada:', e.reason);
-            showError('Error: ' + e.reason);
-        });
-
         // Función de debug para ver el estado
         window.debugInfo = function() {
             const info = {
@@ -1392,7 +1390,7 @@
                 canvas: !!canvasElement,
                 stream: !!currentStream,
                 isScanning: isScanning,
-                // AGREGAR verificación de elementos DOM
+                jsQRLoaded: !!jsQR,
                 statusIcon: !!document.querySelector('.status-icon i'),
                 statusText: !!document.getElementById('status-text'),
                 errorModal: !!document.getElementById('error-modal')
@@ -1402,19 +1400,23 @@
             alert('Estado del sistema:\n' + JSON.stringify(info, null, 2));
         };
 
-        // Capturar TODOS los errores
+        // Capturar errores globales
         window.addEventListener('error', function(e) {
             console.error('🚨 ERROR GLOBAL:', e.error);
-            console.error('🚨 En archivo:', e.filename);
-            console.error('🚨 En línea:', e.lineno);
-            
-            // Mostrar en pantalla sin redirigir
             const statusText = document.getElementById('status-text');
             if (statusText) {
                 statusText.textContent = 'ERROR: ' + e.error.message;
                 statusText.className = 'status-text error';
             }
         });
+
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('🚨 Promise rechazada:', e.reason);
+            showError('Error: ' + e.reason);
+        });
+
+        console.log('🎉 Escáner QR cargado completamente');
+        console.log('💡 Para pruebas usa: testQR() o generateTestQR()');
     </script>
 </body>
 </html>
