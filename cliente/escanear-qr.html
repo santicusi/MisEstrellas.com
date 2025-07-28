@@ -11,6 +11,12 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
+
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/translations.js"></script>
+
     <style>
         :root {
             --bg-black: #0F0F0F;
@@ -1002,8 +1008,8 @@
                 const constraints = {
                     video: {
                         facingMode: currentFacingMode,
-                        width: { ideal: 1280, min: 640 },
-                        height: { ideal: 720, min: 480 }
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
                     }
                 };
 
@@ -1070,7 +1076,7 @@
                     const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
                     
                     const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                        inversionAttempts: "dontInvert"
+                        inversionAttempts: "attemptBoth"
                     });
                     
                     if (code) {
@@ -1084,7 +1090,9 @@
                 console.error('❌ Error en scanFrame:', error);
             }
 
-            animationId = requestAnimationFrame(scanFrame);
+            setTimeout(() => {
+                animationId = requestAnimationFrame(scanFrame);
+            }, 50);
         }
 
         // ==========================================
