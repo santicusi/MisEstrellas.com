@@ -864,8 +864,8 @@
             console.log('🚀 Inicializando aplicación de escaneo...');
             updateDebugInfo();
             
-            // Esperar a que Firebase esté listo desde firebase-config.js
-            window.addEventListener('firebaseReady', async () => {
+            // Función para inicializar cuando Firebase esté listo
+            async function initializeApp() {
                 try {
                     auth = window.auth;
                     db = window.db;
@@ -889,7 +889,16 @@
                     updateStatus('error', 'fas fa-exclamation-triangle', 'ERROR: ' + error.message);
                     updateDebugInfo();
                 }
-            });
+            }
+            
+            // Verificar si Firebase ya está listo
+            if (window.auth && window.db) {
+                console.log('🔥 Firebase ya está disponible');
+                await initializeApp();
+            } else {
+                console.log('⏳ Esperando Firebase...');
+                window.addEventListener('firebaseReady', initializeApp);
+            }
         });
 
         async function checkAuthentication() {
