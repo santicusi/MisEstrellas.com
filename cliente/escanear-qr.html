@@ -846,17 +846,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     
     <script>
-        // ==========================================
-        // CONFIGURACIÓN DE FIREBASE
-        // ==========================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyAdRYp6pQRVoPnhOEnz3PrYPz8B2jswo3Y",
-            authDomain: "miestrellas-d677e.firebaseapp.com",
-            projectId: "miestrellas-d677e",
-            storageBucket: "miestrellas-d677e.firebasestorage.app",
-            messagingSenderId: "942296067880",
-            appId: "1:942296067880:web:b5c9e6a7c03d06aa07aa1d"
-        };
 
         // Variables globales
         let app, auth, db, storage;
@@ -875,54 +864,33 @@
             console.log('🚀 Inicializando aplicación de escaneo...');
             updateDebugInfo();
             
-            try {
-                await initializeFirebase();
-                console.log('✅ Firebase inicializado');
-                updateDebugInfo();
-                
-                await checkAuthentication();
-                console.log('✅ Autenticación verificada');
-                updateDebugInfo();
-                
-                await initializeScanner();
-                console.log('✅ Escáner inicializado');
-                updateDebugInfo();
-                
-                console.log('✅ Aplicación inicializada correctamente');
-                
-            } catch (error) {
-                console.error('❌ Error en inicialización:', error);
-                updateStatus('error', 'fas fa-exclamation-triangle', 'ERROR: ' + error.message);
-                updateDebugInfo();
-            }
+            // Esperar a que Firebase esté listo desde firebase-config.js
+            window.addEventListener('firebaseReady', async () => {
+                try {
+                    auth = window.auth;
+                    db = window.db;
+                    storage = window.storage;
+                    
+                    console.log('✅ Firebase inicializado desde config');
+                    updateDebugInfo();
+                    
+                    await checkAuthentication();
+                    console.log('✅ Autenticación verificada');
+                    updateDebugInfo();
+                    
+                    await initializeScanner();
+                    console.log('✅ Escáner inicializado');
+                    updateDebugInfo();
+                    
+                    console.log('✅ Aplicación inicializada correctamente');
+                    
+                } catch (error) {
+                    console.error('❌ Error en inicialización:', error);
+                    updateStatus('error', 'fas fa-exclamation-triangle', 'ERROR: ' + error.message);
+                    updateDebugInfo();
+                }
+            });
         });
-
-        async function initializeFirebase() {
-            console.log('🔥 Inicializando Firebase...');
-            
-            try {
-                if (typeof firebase === 'undefined') {
-                    throw new Error('Firebase SDK no está cargado');
-                }
-
-                if (firebase.apps.length === 0) {
-                    app = firebase.initializeApp(firebaseConfig);
-                } else {
-                    app = firebase.app();
-                }
-
-                auth = firebase.auth();
-                db = firebase.firestore();
-                storage = firebase.storage();
-
-                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-                console.log('✅ Firebase inicializado correctamente');
-                
-            } catch (error) {
-                console.error('❌ Error inicializando Firebase:', error);
-                throw error;
-            }
-        }
 
         async function checkAuthentication() {
             console.log('🔐 Verificando autenticación...');
