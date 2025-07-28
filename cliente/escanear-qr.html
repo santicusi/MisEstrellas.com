@@ -860,46 +860,7 @@
         // ==========================================
         // INICIALIZACIÓN
         // ==========================================
-        document.addEventListener('DOMContentLoaded', async function() {
-            console.log('🚀 Inicializando aplicación de escaneo...');
-            updateDebugInfo();
-            
-            // Función para inicializar cuando Firebase esté listo
-            async function initializeApp() {
-                try {
-                    auth = window.auth;
-                    db = window.db;
-                    storage = window.storage;
-                    
-                    console.log('✅ Firebase inicializado desde config');
-                    updateDebugInfo();
-                    
-                    await checkAuthentication();
-                    console.log('✅ Autenticación verificada');
-                    updateDebugInfo();
-                    
-                    await initializeScanner();
-                    console.log('✅ Escáner inicializado');
-                    updateDebugInfo();
-                    
-                    console.log('✅ Aplicación inicializada correctamente');
-                    
-                } catch (error) {
-                    console.error('❌ Error en inicialización:', error);
-                    updateStatus('error', 'fas fa-exclamation-triangle', 'ERROR: ' + error.message);
-                    updateDebugInfo();
-                }
-            }
-            
-            // Verificar si Firebase ya está listo
-            if (window.auth && window.db) {
-                console.log('🔥 Firebase ya está disponible');
-                await initializeApp();
-            } else {
-                console.log('⏳ Esperando Firebase...');
-                window.addEventListener('firebaseReady', initializeApp);
-            }
-        });
+        
 
         async function checkAuthentication() {
             console.log('🔐 Verificando autenticación...');
@@ -1527,6 +1488,48 @@
             console.error('🚨 ERROR GLOBAL:', e.error);
             updateStatus('error', 'fas fa-exclamation-triangle', 'Error: ' + e.error.message);
             updateDebugInfo();
+        });
+
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Inicializando aplicación de escaneo...');
+            updateDebugInfo();
+            
+            // Función para inicializar cuando Firebase esté listo
+            async function initializeApp() {
+                try {
+                    auth = window.auth;
+                    db = window.db;
+                    storage = window.storage;
+                    
+                    console.log('✅ Firebase inicializado desde config');
+                    updateDebugInfo();
+                    
+                    await checkAuthentication();
+                    console.log('✅ Autenticación verificada');
+                    updateDebugInfo();
+                    
+                    await initializeScanner();
+                    console.log('✅ Escáner inicializado');
+                    updateDebugInfo();
+                    
+                    console.log('✅ Aplicación inicializada correctamente');
+                    
+                } catch (error) {
+                    console.error('❌ Error en inicialización:', error);
+                    updateStatus('error', 'fas fa-exclamation-triangle', 'ERROR: ' + error.message);
+                    updateDebugInfo();
+                }
+            }
+            
+            // Verificar si Firebase ya está listo
+            if (window.auth && window.db) {
+                console.log('🔥 Firebase ya está disponible');
+                await initializeApp();
+            } else {
+                console.log('⏳ Esperando Firebase...');
+                window.addEventListener('firebaseReady', initializeApp);
+            }
         });
 
         console.log('🎉 Cliente Escáner cargado completamente');
