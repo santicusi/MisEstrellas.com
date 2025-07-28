@@ -354,12 +354,12 @@
         }
 
         async function generateQR() {
+            console.log('📱 Generando QR para', currentPoints, 'puntos');
             
             if (typeof QRCode === 'undefined') {
                 showError('Librería QR no cargada, intenta de nuevo');
                 return;
             }
-            console.log('📱 Generando QR para', currentPoints, 'puntos');
             
             const qrPlaceholder = document.getElementById('qr-placeholder');
             const qrDisplay = document.getElementById('qr-code-display');
@@ -371,21 +371,39 @@
             qrLoading.style.display = 'block';
             
             try {
-                // Verificar que el usuario esté autenticado
                 if (!currentUser) {
                     throw new Error('Usuario no autenticado');
                 }
                 
-                // Crear QR usando la función de Firebase
-                const qrData = await crearQRPuntos(currentPoints, currentUser.uid);
-                console.log('✅ QR creado:', qrData);
+                // Generar códigos
+                const qrId = 'qr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                const displayCode = generateDisplayCode();
+                const fullQRCode = `POINTS:${currentUser.uid}:${qrId}:${currentPoints}`;
                 
-                // Generar código QR visual
+                console.log('🎯 Códigos generados:');
+                console.log('   - Display:', displayCode);
+                console.log('   - QR Completo:', fullQRCode);
+                
+                // Guardar en Firebase
+                const expiresAt = new Date(Date.now() + (5 * 60 * 1000));
+                await db.collection('qr_codes').doc(qrId).set({
+                    id: qrId,
+                    businessId: currentUser.uid,
+                    points: currentPoints,
+                    displayCode: displayCode,
+                    fullCode: fullQRCode,
+                    used: false,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
+                    status: 'active'
+                });
+                
+                // Generar QR visual con el código COMPLETO
                 const qrCodeElement = document.getElementById('qr-code');
                 qrCodeElement.innerHTML = '';
                 
                 const qrCode = new QRCode(qrCodeElement, {
-                    text: qrData.code,
+                    text: fullQRCode, // ✅ CÓDIGO COMPLETO
                     width: 250,
                     height: 250,
                     colorDark: '#FF8C42',
@@ -393,22 +411,19 @@
                     correctLevel: QRCode.CorrectLevel.H
                 });
                 
-                // Actualizar display
+                // Mostrar código corto en pantalla
                 document.getElementById('qr-points-display').textContent = currentPoints;
-                document.getElementById('qr-code-text').textContent = qrData.displayCode;
+                document.getElementById('qr-code-text').textContent = displayCode;
                 
-                // Mostrar QR display
+                // Mostrar QR
                 qrLoading.style.display = 'none';
                 qrDisplay.style.display = 'block';
                 
-                // Iniciar timer de expiración
-                startExpirationTimer(qrData.expiresIn);
+                // Timer y listener
+                startExpirationTimer(300);
+                listenForQRScans(qrId);
                 
-                // Guardar datos del QR actual
-                currentQRCode = qrData;
-                
-                // Escuchar por escaneos del QR
-                listenForQRScans(qrData.id);
+                currentQRCode = { id: qrId, code: fullQRCode, displayCode: displayCode };
                 
             } catch (error) {
                 console.error('❌ Error generando QR:', error);
@@ -416,6 +431,15 @@
                 qrPlaceholder.style.display = 'block';
                 showError('Error generando QR: ' + error.message);
             }
+        }
+
+        function generateDisplayCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 8; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
         }
 
         function startExpirationTimer(expiresIn) {
