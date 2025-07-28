@@ -11,12 +11,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
-
-    <script src="../js/firebase-config.js"></script>
-    <script src="../js/auth.js"></script>
-    <script src="../js/utils.js"></script>
-    <script src="../js/translations.js"></script>
-
     <style>
         :root {
             --bg-black: #0F0F0F;
@@ -197,7 +191,6 @@
             display: flex;
             justify-content: center;
             gap: 1rem;
-            flex-wrap: wrap;
         }
 
         .control-btn {
@@ -211,65 +204,10 @@
             align-items: center;
             gap: 0.5rem;
             font-size: 0.875rem;
-            min-width: 120px;
-            justify-content: center;
         }
 
         .control-btn:hover {
             background: var(--light-warm);
-        }
-
-        .control-btn.primary {
-            background: var(--primary-orange);
-        }
-
-        .control-btn.primary:hover {
-            background: var(--hover-orange);
-        }
-
-        /* QR Manual Input */
-        .manual-input {
-            display: none;
-            padding: 1rem;
-            background: var(--warm-gray);
-            border-radius: 0.5rem;
-            margin: 1rem;
-        }
-
-        .manual-input.show {
-            display: block;
-        }
-
-        .manual-input input {
-            width: 100%;
-            padding: 0.75rem;
-            background: var(--card-warm);
-            border: 1px solid var(--border-warm);
-            border-radius: 0.5rem;
-            color: var(--text-white);
-            font-size: 1rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .manual-input .quick-fill {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .quick-btn {
-            padding: 0.5rem 1rem;
-            background: var(--light-warm);
-            border: none;
-            border-radius: 0.25rem;
-            color: var(--text-white);
-            cursor: pointer;
-            font-size: 0.75rem;
-        }
-
-        .quick-btn:hover {
-            background: var(--primary-orange);
         }
 
         /* Status Section */
@@ -570,38 +508,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Debug panel */
-        .debug-panel {
-            position: fixed;
-            bottom: 100px;
-            right: 10px;
-            background: var(--card-warm);
-            border: 1px solid var(--border-warm);
-            border-radius: 0.5rem;
-            padding: 0.5rem;
-            font-size: 0.75rem;
-            z-index: 999;
-            display: none;
-            max-width: 200px;
-        }
-
-        .debug-panel.show {
-            display: block;
-        }
-
-        .debug-toggle {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background: var(--primary-orange);
-            border: none;
-            color: white;
-            padding: 0.5rem;
-            border-radius: 50%;
-            cursor: pointer;
-            z-index: 1001;
-        }
-
         /* Responsive */
         @media (max-width: 480px) {
             .camera-container {
@@ -611,16 +517,6 @@
             .scan-frame {
                 width: 150px;
                 height: 150px;
-            }
-
-            .camera-controls {
-                gap: 0.5rem;
-            }
-
-            .control-btn {
-                min-width: 100px;
-                font-size: 0.75rem;
-                padding: 0.5rem;
             }
         }
     </style>
@@ -663,43 +559,10 @@
 
                 <!-- Camera Controls -->
                 <div class="camera-controls">
-                    <button class="control-btn" onclick="flipCamera()">
+                    <button class="control-btn" id="flip-camera-btn" onclick="flipCamera()">
                         <i class="fas fa-sync-alt"></i>
-                        <span>Cambiar</span>
+                        <span>Cambiar Cámara</span>
                     </button>
-                    <button class="control-btn primary" onclick="toggleManualInput()">
-                        <i class="fas fa-keyboard"></i>
-                        <span>QR Manual</span>
-                    </button>
-                    <button class="control-btn" onclick="testWithDemo()">
-                        <i class="fas fa-vial"></i>
-                        <span>Demo</span>
-                    </button>
-                </div>
-
-                <!-- Manual Input -->
-                <div class="manual-input" id="manual-input">
-                    <h4 style="margin-bottom: 1rem; color: var(--primary-orange);">Ingresar QR Manualmente</h4>
-                    
-                    <div class="quick-fill">
-                        <button class="quick-btn" onclick="fillQuick('POINTS:')">POINTS:</button>
-                        <button class="quick-btn" onclick="fillQuick('POINTS:demo-business:')">+ Business</button>
-                        <button class="quick-btn" onclick="fillQuick('POINTS:demo-business:qr123:')">+ QR ID</button>
-                        <button class="quick-btn" onclick="fillDemo()">Demo Completo</button>
-                    </div>
-                    
-                    <input type="text" id="manual-qr-input" placeholder="POINTS:businessId:qrId:points" />
-                    
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button class="control-btn" onclick="processManualQR()" style="flex: 1;">
-                            <i class="fas fa-check"></i>
-                            <span>Procesar</span>
-                        </button>
-                        <button class="control-btn" onclick="toggleManualInput()" style="flex: 1;">
-                            <i class="fas fa-times"></i>
-                            <span>Cancelar</span>
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -709,7 +572,7 @@
                     <div class="status-icon">
                         <i class="fas fa-qrcode"></i>
                     </div>
-                    <p class="status-text" id="status-text">Inicializando...</p>
+                    <p class="status-text" id="status-text">Buscando código QR...</p>
                 </div>
             </div>
 
@@ -720,8 +583,6 @@
                     <li>Apunta la cámara hacia el código QR</li>
                     <li>Asegúrate de que el código esté dentro del marco</li>
                     <li>Mantén la cámara estable hasta que se detecte</li>
-                    <li><strong>QR Manual:</strong> para pruebas, usa los botones de autocompletado</li>
-                    <li><strong>Demo:</strong> simula un QR de prueba completo</li>
                 </ul>
             </div>
         </main>
@@ -746,21 +607,6 @@
             </a>
         </nav>
     </div>
-
-    <!-- Debug Panel -->
-    <div class="debug-panel" id="debug-panel">
-        <div><strong>Estado del Sistema:</strong></div>
-        <div>Firebase: <span id="debug-firebase">❌</span></div>
-        <div>Auth: <span id="debug-auth">❌</span></div>
-        <div>Usuario: <span id="debug-user">❌</span></div>
-        <div>Cámara: <span id="debug-camera">❌</span></div>
-        <div>Escaneo: <span id="debug-scanning">❌</span></div>
-        <div>jsQR: <span id="debug-jsqr">❌</span></div>
-    </div>
-    
-    <button class="debug-toggle" onclick="toggleDebug()">
-        <i class="fas fa-bug"></i>
-    </button>
 
     <!-- Confirmation Modal -->
     <div class="modal" id="confirmation-modal">
@@ -846,6 +692,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     
     <script>
+        // ==========================================
+        // CONFIGURACIÓN DE FIREBASE
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAdRYp6pQRVoPnhOEnz3PrYPz8B2jswo3Y",
+            authDomain: "miestrellas-d677e.firebaseapp.com",
+            projectId: "miestrellas-d677e",
+            storageBucket: "miestrellas-d677e.firebasestorage.app",
+            messagingSenderId: "942296067880",
+            appId: "1:942296067880:web:b5c9e6a7c03d06aa07aa1d"
+        };
 
         // Variables globales
         let app, auth, db, storage;
@@ -860,28 +717,78 @@
         // ==========================================
         // INICIALIZACIÓN
         // ==========================================
-        
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Inicializando aplicación...');
+            
+            try {
+                // Inicializar Firebase
+                await initializeFirebase();
+                console.log('✅ Firebase inicializado');
+                
+                // Verificar autenticación (sin redirigir)
+                await checkAuthentication();
+                console.log('✅ Autenticación verificada');
+                
+                // Inicializar escáner
+                await initializeScanner();
+                console.log('✅ Escáner inicializado');
+                
+                console.log('✅ Aplicación inicializada correctamente');
+                
+            } catch (error) {
+                console.error('❌ Error en inicialización:', error);
+                
+                // NO usar showError que puede redirigir, usar alert temporal
+                alert('Error: ' + error.message);
+                
+                // Mostrar error en pantalla también
+                const statusText = document.getElementById('status-text');
+                if (statusText) {
+                    statusText.textContent = 'ERROR: ' + error.message;
+                    statusText.className = 'status-text error';
+                }
+                
+                // QUEDARSE en la página para debug
+            }
+        });
+
+        async function initializeFirebase() {
+            console.log('🔥 Inicializando Firebase...');
+            
+            try {
+                // Verificar si Firebase está disponible
+                if (typeof firebase === 'undefined') {
+                    throw new Error('Firebase SDK no está cargado');
+                }
+
+                // Inicializar Firebase
+                if (firebase.apps.length === 0) {
+                    app = firebase.initializeApp(firebaseConfig);
+                } else {
+                    app = firebase.app();
+                }
+
+                // Inicializar servicios
+                auth = firebase.auth();
+                db = firebase.firestore();
+                storage = firebase.storage();
+
+                // Configurar persistencia
+                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                
+                console.log('✅ Firebase inicializado correctamente');
+                
+            } catch (error) {
+                console.error('❌ Error inicializando Firebase:', error);
+                throw error;
+            }
+        }
 
         async function checkAuthentication() {
             console.log('🔐 Verificando autenticación...');
             
             return new Promise((resolve, reject) => {
-                const timeoutId = setTimeout(() => {
-                    console.log('⏰ Timeout en autenticación, usando usuario demo');
-                    
-                    currentUser = { 
-                        uid: 'demo-client-' + Date.now(),
-                        displayName: 'Cliente Demo',
-                        email: 'cliente@demo.com',
-                        phoneNumber: '+57300123456'
-                    };
-                    
-                    console.log('🧪 Usuario demo creado:', currentUser.uid);
-                    resolve(currentUser);
-                }, 3000);
-
                 const unsubscribe = auth.onAuthStateChanged((user) => {
-                    clearTimeout(timeoutId);
                     unsubscribe();
                     
                     if (user) {
@@ -889,16 +796,17 @@
                         console.log('✅ Usuario autenticado:', user.uid);
                         resolve(user);
                     } else {
-                        console.log('❌ Usuario no autenticado - usando modo demo');
+                        console.log('❌ Usuario no autenticado - usando modo debug');
                         
+                        // MODO DEBUG: Crear usuario falso para testing
                         currentUser = { 
-                            uid: 'demo-client-' + Date.now(),
-                            displayName: 'Cliente Demo',
-                            email: 'cliente@demo.com',
+                            uid: 'debug-user-' + Date.now(),
+                            displayName: 'Usuario Debug',
+                            email: 'debug@test.com',
                             phoneNumber: '+57300123456'
                         };
                         
-                        console.log('🧪 Usuario demo creado:', currentUser.uid);
+                        console.log('🧪 Usuario debug creado:', currentUser.uid);
                         resolve(currentUser);
                     }
                 });
@@ -926,8 +834,10 @@
                 console.log('✅ Escáner inicializado correctamente');
             } catch (error) {
                 console.error('❌ Error inicializando escáner:', error);
-                updateStatus('error', 'fas fa-exclamation-triangle', 'Error cámara: ' + error.message);
-                updateDebugInfo();
+                showError('Error: ' + error.message);
+                
+                // Mostrar mensaje en lugar de redirigir
+                updateStatus('error', 'fas fa-exclamation-triangle');
             }
         }
 
@@ -935,10 +845,12 @@
             console.log('📹 Iniciando cámara...');
             
             try {
+                // Verificar si el navegador soporta getUserMedia
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     throw new Error('Tu navegador no soporta acceso a la cámara');
                 }
 
+                // Detener stream actual si existe
                 if (currentStream) {
                     currentStream.getTracks().forEach(track => track.stop());
                 }
@@ -946,14 +858,15 @@
                 const constraints = {
                     video: {
                         facingMode: currentFacingMode,
-                        width: { ideal: 640 },
-                        height: { ideal: 480 }
+                        width: { ideal: 1280, min: 640 },
+                        height: { ideal: 720, min: 480 }
                     }
                 };
 
                 currentStream = await navigator.mediaDevices.getUserMedia(constraints);
                 videoElement.srcObject = currentStream;
                 
+                // Esperar a que el video cargue
                 await new Promise((resolve, reject) => {
                     videoElement.addEventListener('loadedmetadata', () => {
                         canvasElement.width = videoElement.videoWidth;
@@ -966,10 +879,11 @@
                         reject(new Error('Error cargando video'));
                     });
                     
+                    // Timeout de seguridad
                     setTimeout(() => reject(new Error('Timeout cargando cámara')), 10000);
                 });
 
-                updateStatus('scanning', 'fas fa-qrcode', 'Buscando código QR...');
+                updateStatus('scanning', 'fas fa-qrcode');
                 
             } catch (error) {
                 console.error('❌ Error accediendo a la cámara:', error);
@@ -991,7 +905,6 @@
                 console.log('👁️ Iniciando escaneo...');
                 isScanning = true;
                 scanFrame();
-                updateDebugInfo();
             }
         }
 
@@ -1001,7 +914,6 @@
             if (animationId) {
                 cancelAnimationFrame(animationId);
             }
-            updateDebugInfo();
         }
 
         function scanFrame() {
@@ -1009,12 +921,15 @@
 
             try {
                 if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                    // Dibujar frame actual en canvas
                     canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
                     
+                    // Obtener datos de imagen
                     const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
                     
+                    // Buscar código QR
                     const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                        inversionAttempts: "attemptBoth"
+                        inversionAttempts: "dontInvert"
                     });
                     
                     if (code) {
@@ -1028,9 +943,7 @@
                 console.error('❌ Error en scanFrame:', error);
             }
 
-            setTimeout(() => {
-                animationId = requestAnimationFrame(scanFrame);
-            }, 50);
+            animationId = requestAnimationFrame(scanFrame);
         }
 
         // ==========================================
@@ -1038,13 +951,15 @@
         // ==========================================
         async function processQR(qrData) {
             console.log('🔍 Procesando QR:', qrData);
-            updateStatus('processing', 'fas fa-spinner fa-spin', 'Procesando código...');
+            updateStatus('processing', 'fas fa-spinner fa-spin');
             
             try {
+                // Validar formato básico
                 if (!qrData || typeof qrData !== 'string') {
                     throw new Error('Código QR inválido');
                 }
 
+                // Parsear el código QR
                 const parts = qrData.split(':');
                 if (parts.length !== 4 || parts[0] !== 'POINTS') {
                     throw new Error('Formato de QR no válido para puntos');
@@ -1053,60 +968,48 @@
                 const [type, businessId, qrId, points] = parts;
                 const pointsToAdd = parseInt(points);
                 
-                console.log('📊 Datos parseados:', { type, businessId, qrId, pointsToAdd });
-                
                 if (isNaN(pointsToAdd) || pointsToAdd <= 0) {
                     throw new Error('Cantidad de puntos inválida');
                 }
 
-                // Simulación de datos del negocio para demo
-                let businessData = {
-                    name: 'Negocio Demo',
-                    address: 'Dirección Demo'
-                };
-
-                // Intentar obtener datos reales si Firebase está disponible
-                if (db) {
-                    try {
-                        console.log('🔍 Verificando QR en Firebase...');
-                        const qrDoc = await db.collection('qr_codes').doc(qrId).get();
-                        
-                        if (qrDoc.exists) {
-                            const qrCodeData = qrDoc.data();
-                            console.log('📋 Datos del QR:', qrCodeData);
-
-                            if (qrCodeData.used) {
-                                throw new Error('Este código ya fue utilizado');
-                            }
-
-                            if (qrCodeData.expiresAt && new Date() > qrCodeData.expiresAt.toDate()) {
-                                throw new Error('Este código ha expirado');
-                            }
-                            
-                            if (qrCodeData.businessId !== businessId) {
-                                throw new Error('Código QR corrupto - ID de negocio no coincide');
-                            }
-
-                            // Obtener información del negocio
-                            console.log('🏪 Obteniendo datos del negocio...');
-                            const businessDoc = await db.collection('businesses').doc(businessId).get();
-                            if (businessDoc.exists) {
-                                businessData = businessDoc.data();
-                                console.log('🏢 Datos del negocio:', businessData);
-                            }
-                        }
-                    } catch (fbError) {
-                        console.log('⚠️ Error con Firebase, usando datos demo:', fbError.message);
-                    }
+                // Verificar QR en Firebase
+                const qrDoc = await db.collection('qr_codes').doc(qrId).get();
+                
+                if (!qrDoc.exists) {
+                    throw new Error('Código QR no encontrado');
                 }
+                
+                const qrCodeData = qrDoc.data();
+
+                if (qrCodeData.used) {
+                    throw new Error('Este código ya fue utilizado');
+                }
+
+                // Verificaciones de seguridad
+                if (qrCodeData.expiresAt && new Date() > qrCodeData.expiresAt.toDate()) {
+                    throw new Error('Este código ha expirado');
+                }
+                
+                if (qrCodeData.businessId !== businessId) {
+                    throw new Error('Código QR corrupto');
+                }
+
+                // Obtener información del negocio
+                const businessDoc = await db.collection('businesses').doc(businessId).get();
+                if (!businessDoc.exists) {
+                    throw new Error('Negocio no encontrado');
+                }
+                
+                const businessData = businessDoc.data();
                 
                 const result = {
                     qrId: qrId,
                     businessId: businessId,
-                    businessName: businessData.name || 'Negocio Demo',
-                    businessAddress: businessData.address || 'Dirección Demo',
+                    businessName: businessData.name || 'Negocio',
+                    businessAddress: businessData.address || 'Dirección no disponible',
                     businessImage: businessData.image || null,
                     points: pointsToAdd,
+                    qrData: qrCodeData,
                     businessData: businessData
                 };
                 
@@ -1118,10 +1021,9 @@
             } catch (error) {
                 console.error('❌ Error procesando QR:', error);
                 showError(error.message || 'Error procesando código QR');
-                updateStatus('error', 'fas fa-exclamation-triangle', 'Error: ' + error.message);
-                
+                updateStatus('error', 'fas fa-exclamation-triangle');
                 setTimeout(() => {
-                    updateStatus('scanning', 'fas fa-qrcode', 'Buscando código QR...');
+                    updateStatus('scanning', 'fas fa-qrcode');
                     startScanning();
                 }, 3000);
             }
@@ -1139,137 +1041,127 @@
             }
             
             try {
+                // Mostrar loading en el botón
                 const confirmBtn = document.querySelector('#confirmation-modal .btn-primary');
                 const originalText = confirmBtn.textContent;
                 confirmBtn.textContent = 'Procesando...';
                 confirmBtn.disabled = true;
                 
-                // Simulación o procesamiento real según disponibilidad de Firebase
-                if (db) {
-                    // Procesamiento real con Firebase
-                    const result = await db.runTransaction(async (transaction) => {
-                        console.log('🔄 Iniciando transacción...');
-                        
-                        const qrRef = db.collection('qr_codes').doc(qrProcessingData.qrId);
-                        const qrDoc = await transaction.get(qrRef);
-                        
-                        if (!qrDoc.exists) {
-                            throw new Error('Código QR no encontrado');
-                        }
-                        
-                        const qrData = qrDoc.data();
-                        
-                        if (qrData.used) {
-                            throw new Error('Este código ya fue utilizado');
-                        }
-                        
-                        if (qrData.expiresAt && new Date() > qrData.expiresAt.toDate()) {
-                            throw new Error('Este código ha expirado');
-                        }
-                        
-                        // Obtener/crear datos del usuario
-                        const userRef = db.collection('users').doc(currentUser.uid);
-                        const userDoc = await transaction.get(userRef);
-                        
-                        let userData = {};
-                        if (userDoc.exists) {
-                            userData = userDoc.data();
-                            console.log('👤 Usuario existente:', userData);
-                        } else {
-                            userData = {
-                                name: currentUser.displayName || 'Usuario',
-                                email: currentUser.email,
-                                phoneNumber: currentUser.phoneNumber,
-                                totalPoints: 0,
-                                totalEarned: 0,
-                                totalVisits: 0,
-                                joinedBusinesses: [],
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                            };
-                            console.log('👤 Creando nuevo usuario:', userData);
-                            transaction.set(userRef, userData);
-                        }
-                        
-                        // Crear transacción
-                        const transactionRef = db.collection('transactions').doc();
-                        const transactionData = {
-                            userId: currentUser.uid,
-                            businessId: qrProcessingData.businessId,
-                            qrCodeId: qrProcessingData.qrId,
-                            type: 'earned',
-                            points: qrProcessingData.points,
-                            description: `Puntos ganados en ${qrProcessingData.businessName}`,
-                            status: 'completed',
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            metadata: {
-                                qrDisplayCode: qrData.displayCode,
-                                businessName: qrProcessingData.businessName,
-                                clientName: userData.name || currentUser.displayName || 'Usuario',
-                                clientPhone: userData.phoneNumber || currentUser.phoneNumber
-                            }
+                // Procesar ganancia de puntos usando transacción
+                const result = await db.runTransaction(async (transaction) => {
+                    // 1. Verificar QR nuevamente
+                    const qrRef = db.collection('qr_codes').doc(qrProcessingData.qrId);
+                    const qrDoc = await transaction.get(qrRef);
+                    
+                    if (!qrDoc.exists) {
+                        throw new Error('Código QR no encontrado');
+                    }
+                    
+                    const qrData = qrDoc.data();
+                    
+                    if (qrData.used) {
+                        throw new Error('Este código ya fue utilizado');
+                    }
+                    
+                    if (qrData.expiresAt && new Date() > qrData.expiresAt.toDate()) {
+                        throw new Error('Este código ha expirado');
+                    }
+                    
+                    // 2. Obtener datos del usuario
+                    const userRef = db.collection('users').doc(currentUser.uid);
+                    const userDoc = await transaction.get(userRef);
+                    
+                    let userData = {};
+                    if (userDoc.exists) {
+                        userData = userDoc.data();
+                    } else {
+                        // Crear usuario si no existe
+                        userData = {
+                            name: currentUser.displayName || 'Usuario',
+                            email: currentUser.email,
+                            phoneNumber: currentUser.phoneNumber,
+                            totalPoints: 0,
+                            totalEarned: 0,
+                            totalVisits: 0,
+                            joinedBusinesses: [],
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
-                        
-                        console.log('💾 Creando transacción:', transactionData);
-                        transaction.set(transactionRef, transactionData);
-                        
-                        // Marcar QR como usado
-                        console.log('✔️ Marcando QR como usado');
-                        transaction.update(qrRef, {
-                            used: true,
-                            usedBy: currentUser.uid,
-                            usedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            clientData: {
-                                name: userData.name || currentUser.displayName || 'Usuario',
-                                phone: userData.phoneNumber || currentUser.phoneNumber,
-                                email: userData.email || currentUser.email
-                            }
-                        });
-                        
-                        // Actualizar estadísticas del usuario
-                        console.log('📊 Actualizando estadísticas del usuario');
-                        transaction.update(userRef, {
-                            totalPoints: firebase.firestore.FieldValue.increment(qrProcessingData.points),
-                            totalEarned: firebase.firestore.FieldValue.increment(qrProcessingData.points),
-                            totalVisits: firebase.firestore.FieldValue.increment(1),
-                            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            joinedBusinesses: firebase.firestore.FieldValue.arrayUnion(qrProcessingData.businessId)
-                        });
-                        
-                        // Actualizar estadísticas del negocio
-                        console.log('🏪 Actualizando estadísticas del negocio');
-                        const businessRef = db.collection('businesses').doc(qrProcessingData.businessId);
-                        transaction.update(businessRef, {
-                            totalPointsGiven: firebase.firestore.FieldValue.increment(qrProcessingData.points),
-                            totalClients: firebase.firestore.FieldValue.increment(1),
-                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        
-                        return {
-                            success: true,
-                            transactionId: transactionRef.id,
-                            points: qrProcessingData.points,
-                            businessName: qrProcessingData.businessName
-                        };
+                        transaction.set(userRef, userData);
+                    }
+                    
+                    // 3. Crear transacción
+                    const transactionRef = db.collection('transactions').doc();
+                    const transactionData = {
+                        userId: currentUser.uid,
+                        businessId: qrProcessingData.businessId,
+                        qrCodeId: qrProcessingData.qrId,
+                        type: 'earned',
+                        points: qrProcessingData.points,
+                        description: `Puntos ganados en ${qrProcessingData.businessName}`,
+                        status: 'completed',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        metadata: {
+                            qrDisplayCode: qrData.displayCode,
+                            businessName: qrProcessingData.businessName,
+                            clientName: userData.name || currentUser.displayName || 'Usuario',
+                            clientPhone: userData.phoneNumber || currentUser.phoneNumber
+                        }
+                    };
+                    
+                    transaction.set(transactionRef, transactionData);
+                    
+                    // 4. Marcar QR como usado
+                    transaction.update(qrRef, {
+                        used: true,
+                        usedBy: currentUser.uid,
+                        usedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        clientData: {
+                            name: userData.name || currentUser.displayName || 'Usuario',
+                            phone: userData.phoneNumber || currentUser.phoneNumber,
+                            email: userData.email || currentUser.email
+                        }
                     });
                     
-                    console.log('🎉 Transacción completada:', result);
-                } else {
-                    // Simulación para demo
-                    console.log('🧪 Simulando transacción exitosa (modo demo)');
-                    await new Promise(resolve => setTimeout(resolve, 1500));
-                }
+                    // 5. Actualizar estadísticas del usuario
+                    transaction.update(userRef, {
+                        totalPoints: firebase.firestore.FieldValue.increment(qrProcessingData.points),
+                        totalEarned: firebase.firestore.FieldValue.increment(qrProcessingData.points),
+                        totalVisits: firebase.firestore.FieldValue.increment(1),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        joinedBusinesses: firebase.firestore.FieldValue.arrayUnion(qrProcessingData.businessId)
+                    });
+                    
+                    // 6. Actualizar estadísticas del negocio
+                    const businessRef = db.collection('businesses').doc(qrProcessingData.businessId);
+                    transaction.update(businessRef, {
+                        totalPointsGiven: firebase.firestore.FieldValue.increment(qrProcessingData.points),
+                        totalClients: firebase.firestore.FieldValue.increment(1),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    return {
+                        success: true,
+                        transactionId: transactionRef.id,
+                        points: qrProcessingData.points,
+                        businessName: qrProcessingData.businessName
+                    };
+                });
                 
+                console.log('🎉 Puntos confirmados:', result);
+                
+                // Cerrar modal de confirmación
                 closeConfirmationModal();
+                
+                // Mostrar éxito
                 showSuccessModal(qrProcessingData.businessName, qrProcessingData.points);
                 
             } catch (error) {
                 console.error('❌ Error confirmando puntos:', error);
                 
+                // Restaurar botón
                 const confirmBtn = document.querySelector('#confirmation-modal .btn-primary');
-                if (confirmBtn) {
-                    confirmBtn.textContent = 'Aceptar Puntos';
-                    confirmBtn.disabled = false;
-                }
+                confirmBtn.textContent = 'Aceptar Puntos';
+                confirmBtn.disabled = false;
                 
                 showError('Error confirmando puntos: ' + error.message);
             }
@@ -1278,14 +1170,35 @@
         // ==========================================
         // FUNCIONES DE UI
         // ==========================================
-        function updateStatus(status, iconClass, message) {
+        function updateStatus(status, iconClass) {
             const statusIcon = document.querySelector('.status-icon i');
             const statusText = document.getElementById('status-text');
             
-            if (statusIcon && statusText) {
-                statusIcon.className = iconClass;
-                statusText.textContent = message || 'Estado desconocido';
-                statusText.className = `status-text ${status}`;
+            // VERIFICAR que los elementos existan antes de usarlos
+            if (!statusIcon || !statusText) {
+                console.warn('⚠️ Elementos de status no encontrados');
+                return;
+            }
+            
+            statusIcon.className = iconClass;
+            
+            switch (status) {
+                case 'scanning':
+                    statusText.textContent = 'Buscando código QR...';
+                    statusText.className = 'status-text';
+                    break;
+                case 'processing':
+                    statusText.textContent = 'Procesando código...';
+                    statusText.className = 'status-text processing';
+                    break;
+                case 'success':
+                    statusText.textContent = '¡Código detectado!';
+                    statusText.className = 'status-text success';
+                    break;
+                case 'error':
+                    statusText.textContent = 'Error detectado';
+                    statusText.className = 'status-text error';
+                    break;
             }
         }
 
@@ -1294,10 +1207,12 @@
             
             const modal = document.getElementById('confirmation-modal');
             
+            // Llenar datos del negocio
             document.getElementById('modal-business-name').textContent = data.businessName;
             document.getElementById('modal-business-address').textContent = data.businessAddress;
             document.getElementById('modal-points').textContent = data.points;
             
+            // Actualizar imagen si existe
             if (data.businessImage) {
                 document.getElementById('modal-business-image').src = data.businessImage;
             }
@@ -1307,8 +1222,9 @@
 
         function closeConfirmationModal() {
             document.getElementById('confirmation-modal').classList.remove('show');
+            // Reanudar escaneo después de un pequeño delay
             setTimeout(() => {
-                updateStatus('scanning', 'fas fa-qrcode', 'Buscando código QR...');
+                updateStatus('scanning', 'fas fa-qrcode');
                 startScanning();
             }, 500);
         }
@@ -1320,13 +1236,14 @@
             document.getElementById('success-stars').textContent = stars;
             document.getElementById('success-modal').classList.add('show');
             
-            updateStatus('success', 'fas fa-check-circle', '¡Puntos ganados exitosamente!');
+            updateStatus('success', 'fas fa-check-circle');
         }
 
         function closeSuccessModal() {
             document.getElementById('success-modal').classList.remove('show');
+            // Reanudar escaneo
             setTimeout(() => {
-                updateStatus('scanning', 'fas fa-qrcode', 'Buscando código QR...');
+                updateStatus('scanning', 'fas fa-qrcode');
                 startScanning();
             }, 500);
         }
@@ -1334,21 +1251,31 @@
         function showError(message) {
             console.error('🚨 Mostrando error:', message);
             
+            // Verificar que los elementos existan
             const errorMessage = document.getElementById('error-message');
             const errorModal = document.getElementById('error-modal');
+            const statusText = document.getElementById('status-text');
             
             if (errorMessage && errorModal) {
                 errorMessage.textContent = message;
                 errorModal.classList.add('show');
-            } else {
+            }
+            
+            if (statusText) {
+                statusText.textContent = 'ERROR: ' + message;
+                statusText.className = 'status-text error';
+            }
+            
+            // Fallback: mostrar en alert si no hay elementos
+            if (!errorMessage || !errorModal || !statusText) {
                 alert('Error: ' + message);
             }
         }
-
         function closeErrorModal() {
             document.getElementById('error-modal').classList.remove('show');
+            // Reanudar escaneo
             setTimeout(() => {
-                updateStatus('scanning', 'fas fa-qrcode', 'Buscando código QR...');
+                updateStatus('scanning', 'fas fa-qrcode');
                 startScanning();
             }, 500);
         }
@@ -1358,7 +1285,7 @@
         }
 
         // ==========================================
-        // CONTROLES DE CÁMARA Y UI
+        // CONTROLES DE CÁMARA
         // ==========================================
         async function flipCamera() {
             console.log('🔄 Cambiando cámara...');
@@ -1370,79 +1297,15 @@
                 startScanning();
             } catch (error) {
                 console.error('❌ Error cambiando cámara:', error);
-                showError('Error cambiando cámara: ' + error.message);
+                showError('Error cambiando cámara');
             }
-        }
-
-        function toggleManualInput() {
-            const manualInput = document.getElementById('manual-input');
-            manualInput.classList.toggle('show');
-            
-            if (manualInput.classList.contains('show')) {
-                stopScanning();
-                document.getElementById('manual-qr-input').focus();
-            } else {
-                startScanning();
-            }
-        }
-
-        function fillQuick(prefix) {
-            const input = document.getElementById('manual-qr-input');
-            input.value = prefix;
-            input.focus();
-        }
-
-        function fillDemo() {
-            const input = document.getElementById('manual-qr-input');
-            const demoQR = `POINTS:demo-business-${Date.now()}:qr-${Date.now()}:5`;
-            input.value = demoQR;
-            console.log('🧪 QR demo llenado:', demoQR);
-        }
-
-        function processManualQR() {
-            const input = document.getElementById('manual-qr-input');
-            const qrCode = input.value.trim();
-            
-            if (!qrCode) {
-                showError('Por favor ingresa un código QR');
-                return;
-            }
-            
-            console.log('⌨️ Procesando QR manual:', qrCode);
-            toggleManualInput();
-            processQR(qrCode);
-        }
-
-        function testWithDemo() {
-            const demoQR = `POINTS:demo-business-${Date.now()}:qr-${Date.now()}:3`;
-            console.log('🧪 Probando con QR demo:', demoQR);
-            
-            stopScanning();
-            processQR(demoQR);
-        }
-
-        // ==========================================
-        // FUNCIONES DE DEBUG
-        // ==========================================
-        function updateDebugInfo() {
-            document.getElementById('debug-firebase').textContent = typeof firebase !== 'undefined' ? '✅' : '❌';
-            document.getElementById('debug-auth').textContent = auth ? '✅' : '❌';
-            document.getElementById('debug-user').textContent = currentUser ? '✅' : '❌';
-            document.getElementById('debug-camera').textContent = currentStream ? '✅' : '❌';
-            document.getElementById('debug-scanning').textContent = isScanning ? '✅' : '❌';
-            document.getElementById('debug-jsqr').textContent = typeof jsQR !== 'undefined' ? '✅' : '❌';
-        }
-
-        function toggleDebug() {
-            const panel = document.getElementById('debug-panel');
-            panel.classList.toggle('show');
-            updateDebugInfo();
         }
 
         // ==========================================
         // EVENT LISTENERS
         // ==========================================
         
+        // Cerrar modales al hacer clic fuera
         window.onclick = function(event) {
             const confirmationModal = document.getElementById('confirmation-modal');
             const successModal = document.getElementById('success-modal');
@@ -1461,6 +1324,7 @@
             }
         }
 
+        // Limpieza al salir de la página
         window.addEventListener('beforeunload', function() {
             console.log('🧹 Limpiando recursos...');
             stopScanning();
@@ -1469,74 +1333,88 @@
             }
         });
 
+        // Manejar cambios de visibilidad de la página
         document.addEventListener('visibilitychange', function() {
             if (document.hidden) {
                 stopScanning();
             } else if (currentStream && !isScanning) {
-                setTimeout(() => startScanning(), 500);
+                startScanning();
             }
         });
 
-        // Enter key en input manual
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && document.getElementById('manual-input').classList.contains('show')) {
-                processManualQR();
+        // ==========================================
+        // FUNCIONES DE DEBUG
+        // ==========================================
+        
+        // Función para probar QR manual (solo para desarrollo)
+        window.testQR = function(qrCode) {
+            if (!qrCode) {
+                qrCode = prompt('Ingresa el código QR manualmente:');
             }
+            if (qrCode) {
+                stopScanning();
+                processQR(qrCode);
+            }
+        };
+
+        // Función para generar QR de prueba
+        window.generateTestQR = function() {
+            const businessId = 'CBSU8br1nARkQZgbbR6Sz8cb61v2';
+            const qrId = 'test-' + Date.now();
+            const points = 5;
+            const testQR = `POINTS:${businessId}:${qrId}:${points}`;
+            console.log('🧪 QR de prueba generado:', testQR);
+            processQR(testQR);
+        };
+
+        console.log('🎉 Escáner QR cargado completamente');
+        console.log('💡 Para pruebas usa: testQR() o generateTestQR()');
+
+        // Debug: capturar errores no manejados
+        window.addEventListener('error', function(e) {
+            console.error('🚨 Error global capturado:', e.error);
+            showError('Error inesperado: ' + e.error.message);
         });
 
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('🚨 Promise rechazada no manejada:', e.reason);
+            showError('Error: ' + e.reason);
+        });
+
+        // Función de debug para ver el estado
+        window.debugInfo = function() {
+            const info = {
+                firebase: typeof firebase !== 'undefined',
+                auth: !!auth,
+                db: !!db,
+                currentUser: !!currentUser,
+                video: !!videoElement,
+                canvas: !!canvasElement,
+                stream: !!currentStream,
+                isScanning: isScanning,
+                // AGREGAR verificación de elementos DOM
+                statusIcon: !!document.querySelector('.status-icon i'),
+                statusText: !!document.getElementById('status-text'),
+                errorModal: !!document.getElementById('error-modal')
+            };
+
+            console.log('🔍 Estado del sistema:', info);
+            alert('Estado del sistema:\n' + JSON.stringify(info, null, 2));
+        };
+
+        // Capturar TODOS los errores
         window.addEventListener('error', function(e) {
             console.error('🚨 ERROR GLOBAL:', e.error);
-            updateStatus('error', 'fas fa-exclamation-triangle', 'Error: ' + e.error.message);
-            updateDebugInfo();
-        });
-
-
-        document.addEventListener('DOMContentLoaded', async function() {
-            console.log('🚀 Inicializando aplicación de escaneo...');
-            updateDebugInfo();
+            console.error('🚨 En archivo:', e.filename);
+            console.error('🚨 En línea:', e.lineno);
             
-            // Función para inicializar cuando Firebase esté listo
-            async function initializeApp() {
-                try {
-                    auth = window.auth;
-                    db = window.db;
-                    storage = window.storage;
-                    
-                    console.log('✅ Firebase inicializado desde config');
-                    updateDebugInfo();
-                    
-                    await checkAuthentication();
-                    console.log('✅ Autenticación verificada');
-                    updateDebugInfo();
-                    
-                    await initializeScanner();
-                    console.log('✅ Escáner inicializado');
-                    updateDebugInfo();
-                    
-                    console.log('✅ Aplicación inicializada correctamente');
-                    
-                } catch (error) {
-                    console.error('❌ Error en inicialización:', error);
-                    updateStatus('error', 'fas fa-exclamation-triangle', 'ERROR: ' + error.message);
-                    updateDebugInfo();
-                }
-            }
-            
-            // Verificar si Firebase ya está listo
-            if (window.auth && window.db) {
-                console.log('🔥 Firebase ya está disponible');
-                await initializeApp();
-            } else {
-                console.log('⏳ Esperando Firebase...');
-                window.addEventListener('firebaseReady', initializeApp);
+            // Mostrar en pantalla sin redirigir
+            const statusText = document.getElementById('status-text');
+            if (statusText) {
+                statusText.textContent = 'ERROR: ' + e.error.message;
+                statusText.className = 'status-text error';
             }
         });
-
-        console.log('🎉 Cliente Escáner cargado completamente');
-        console.log('💡 Funciones disponibles:');
-        console.log('  - toggleDebug() - Panel de debug');
-        console.log('  - testWithDemo() - Probar con QR demo');
-        console.log('  - toggleManualInput() - Input manual');
     </script>
 </body>
 </html>
