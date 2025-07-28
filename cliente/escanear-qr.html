@@ -10,6 +10,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
 
     <style>
         :root {
@@ -748,10 +750,6 @@
             try {
                 updateStatus('loading', 'fas fa-spinner fa-spin');
                 
-                // Cargar jsQR primero
-                await loadJsQR();
-                console.log('✅ jsQR cargado');
-                
                 // Inicializar Firebase
                 await initializeFirebase();
                 console.log('✅ Firebase inicializado');
@@ -919,7 +917,7 @@
         }
 
         function startScanning() {
-            if (!isScanning && jsQR) {
+            if (!isScanning && typeof jsQR !== 'undefined') {
                 console.log('👁️ Iniciando escaneo...');
                 isScanning = true;
                 scanFrame();
@@ -935,7 +933,7 @@
         }
 
         function scanFrame() {
-            if (!isScanning || !jsQR) return;
+            if (!isScanning || typeof jsQR === 'undefined') return;
 
             try {
                 if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {

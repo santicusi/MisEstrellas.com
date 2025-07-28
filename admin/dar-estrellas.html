@@ -236,11 +236,15 @@
     </div>
 
     <!-- Scripts -->
+    <!-- Eliminar estas líneas que no existen: -->
     <script src="../js/qrcode.min.js"></script>
     <script src="../js/translations.js"></script>
     <script src="../js/utils.js"></script>
     <script src="../js/firebase-config.js"></script>
     <script src="../js/auth.js"></script>
+
+    <!-- Y agregar directamente las librerías desde CDN: -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
     
     <script>
         let currentUser = null;
@@ -384,13 +388,12 @@
                 const qrCodeElement = document.getElementById('qr-code');
                 qrCodeElement.innerHTML = '';
                 
-                const qrCode = new QRCode(qrCodeElement, {
-                    text: qrData.code,
-                    width: 250,
-                    height: 250,
-                    colorDark: '#000000',
-                    colorLight: '#FFFFFF',
-                    correctLevel: QRCode.CorrectLevel.H
+                const qr = new QRious({
+                    element: qrCodeElement,
+                    value: qrData.code,
+                    size: 250,
+                    background: '#FFFFFF',
+                    foreground: '#000000'
                 });
                 
                 // Actualizar display
@@ -633,6 +636,62 @@
             // Función para actualizar textos de traducción
             console.log('🌐 Actualizando textos...');
         }
+
+        // Funciones Firebase que faltan
+        async function crearQRPuntos(puntos, businessId) {
+            const qrId = 'qr_' + Date.now();
+            const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutos
+            
+            const qrData = {
+                businessId: businessId,
+                points: puntos,
+                used: false,
+                expiresAt: expiresAt,
+                createdAt: new Date(),
+                displayCode: Math.random().toString(36).substr(2, 6).toUpperCase()
+            };
+            
+            await db.collection('qr_codes').doc(qrId).set(qrData);
+            
+            return {
+                id: qrId,
+                code: `POINTS:${businessId}:${qrId}:${puntos}`,
+                displayCode: qrData.displayCode,
+                expiresIn: 300 // 5 minutos en segundos
+            };
+        }
+
+        function listenForQRUsage(qrId, callback) {
+            return db.collection('qr_codes').doc(qrId).onSnapshot((doc) => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    if (data.used && data.usedBy) {
+                        callback(data);
+                    }
+                }
+            });
+        }
+
+        async function cargarDatosNegocio(userId) {
+            const doc = await db.collection('businesses').doc(userId).get();
+            return doc.exists ? doc.data() : { name: 'Mi Negocio' };
+        }
+
+        async function getUserData(userId) {
+            const doc = await db.collection('users').doc(userId).get();
+            return doc.exists ? doc.data() : null;
+        }
+
+        const FirebaseUtils = {
+            waitForAuth: () => {
+                return new Promise((resolve) => {
+                    const unsubscribe = auth.onAuthStateChanged((user) => {
+                        unsubscribe();
+                        resolve(user);
+                    });
+                });
+            }
+        };
 
         // Cerrar modales al hacer clic fuera
         window.onclick = function(event) {
