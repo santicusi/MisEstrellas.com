@@ -284,6 +284,216 @@
         let qrUsageListener = null;
         let businessData = null;
 
+
+        function incrementPoints() {
+            if (currentPoints < 100) {
+                currentPoints++;
+                updatePointsDisplay();
+                updateButtonStates();
+            }
+        }
+
+        function decrementPoints() {
+            if (currentPoints > 1) {
+                currentPoints--;
+                updatePointsDisplay();
+                updateButtonStates();
+            }
+        }
+
+        function setPoints(points) {
+            currentPoints = points;
+            updatePointsDisplay();
+            updateButtonStates();
+            
+            // Highlight the selected preset
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            event.target.classList.add('active');
+        }
+
+        async function generateQR() {
+            console.log('📱 Generando QR para', currentPoints, 'puntos');
+            
+            if (typeof QRCode === 'undefined') {
+                showError('Librería QR no cargada, intenta de nuevo');
+                return;
+            }
+            
+            const qrPlaceholder = document.getElementById('qr-placeholder');
+            const qrDisplay = document.getElementById('qr-code-display');
+            const qrLoading = document.getElementById('qr-loading');
+            
+            // Mostrar loading
+            qrPlaceholder.style.display = 'none';
+            qrDisplay.style.display = 'none';
+            qrLoading.style.display = 'block';
+            
+            try {
+                if (!currentUser) {
+                    throw new Error('Usuario no autenticado');
+                }
+                
+                // Generar códigos
+                const qrId = 'qr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                const displayCode = generateDisplayCode();
+                const fullQRCode = `POINTS:${currentUser.uid}:${qrId}:${currentPoints}`;
+                
+                console.log('🎯 Códigos generados:');
+                console.log('   - QR ID:', qrId);
+                console.log('   - Display:', displayCode);
+                console.log('   - QR Completo:', fullQRCode);
+                
+                // Guardar en Firebase (solo si está disponible)
+                if (db) {
+                    const expiresAt = new Date(Date.now() + (5 * 60 * 1000));
+                    await db.collection('qr_codes').doc(qrId).set({
+                        id: qrId,
+                        businessId: currentUser.uid,
+                        points: currentPoints,
+                        displayCode: displayCode,
+                        fullCode: fullQRCode,
+                        used: false,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
+                        status: 'active'
+                    });
+                    console.log('💾 QR guardado en Firebase');
+                }
+                
+                // Generar QR visual con el código COMPLETO
+                const qrCodeElement = document.getElementById('qr-code');
+                qrCodeElement.innerHTML = '';
+                
+                const qrCode = new QRCode(qrCodeElement, {
+                    text: fullQRCode, // ✅ CÓDIGO COMPLETO
+                    width: 250,
+                    height: 250,
+                    colorDark: '#FF8C42',
+                    colorLight: '#1A1A1A',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+                
+                // Mostrar información
+                document.getElementById('qr-points-display').textContent = currentPoints;
+                document.getElementById('qr-code-text').textContent = displayCode;
+                
+                // Mostrar QR
+                qrLoading.style.display = 'none';
+                qrDisplay.style.display = 'block';
+                
+                // Timer y listener
+                startExpirationTimer(300);
+                if (db) {
+                    listenForQRScans(qrId);
+                }
+                
+                currentQRCode = { 
+                    id: qrId, 
+                    code: fullQRCode, 
+                    displayCode: displayCode,
+                    points: currentPoints,
+                    businessId: currentUser.uid
+                };
+                
+                console.log('✅ QR generado exitosamente');
+                
+            } catch (error) {
+                console.error('❌ Error generando QR:', error);
+                qrLoading.style.display = 'none';
+                qrPlaceholder.style.display = 'block';
+                showError('Error generando QR: ' + error.message);
+            }
+        }
+
+        function regenerateQR() {
+            clearQR();
+            generateQR();
+        }
+
+        function clearQR() {
+            const qrPlaceholder = document.getElementById('qr-placeholder');
+            const qrDisplay = document.getElementById('qr-code-display');
+            
+            qrDisplay.style.display = 'none';
+            qrPlaceholder.style.display = 'block';
+            
+            // Limpiar timer
+            if (qrExpirationTimer) {
+                clearInterval(qrExpirationTimer);
+                qrExpirationTimer = null;
+            }
+            
+            // Limpiar listener
+            if (qrUsageListener) {
+                qrUsageListener();
+                qrUsageListener = null;
+            }
+            
+            // Limpiar datos del QR
+            currentQRCode = null;
+        }
+
+        function showDebugInfo() {
+            const info = {
+                firebase: typeof firebase !== 'undefined',
+                auth: !!auth,
+                db: !!db,
+                currentUser: !!currentUser,
+                currentQRCode: !!currentQRCode,
+                qrCode: currentQRCode?.code || 'No generado',
+                points: currentPoints,
+                businessData: !!businessData
+            };
+
+            const infoText = Object.entries(info)
+                .map(([key, value]) => `${key}: ${value}`)
+                .join('\n');
+
+            alert('🔍 DEBUG INFO:\n\n' + infoText + '\n\n' + 
+                  (currentQRCode ? `\nÚltimo QR generado:\n${currentQRCode.code}` : ''));
+            
+            console.log('🔍 Debug Info:', info);
+            
+            if (currentQRCode) {
+                console.log('📱 Último QR:', currentQRCode.code);
+                console.log('💡 Para probar: copia este código y úsalo en el escáner manual');
+            }
+        }
+
+        function closeConfirmationModal() {
+            document.getElementById('confirmation-modal').style.display = 'none';
+        }
+
+        async function confirmTransaction() {
+            console.log('✅ Confirmando transacción...');
+            
+            try {
+                closeConfirmationModal();
+                showSuccessModal();
+                clearQR();
+                
+            } catch (error) {
+                console.error('❌ Error confirmando transacción:', error);
+                showError('Error confirmando transacción: ' + error.message);
+            }
+        }
+
+        function showSuccessModal() {
+            const modal = document.getElementById('success-modal');
+            
+            document.getElementById('success-points').textContent = currentPoints;
+            document.getElementById('success-client').textContent = document.getElementById('modal-client-name').textContent;
+            
+            modal.style.display = 'block';
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('success-modal').style.display = 'none';
+        }
+
         // ============================================
         // INICIALIZACIÓN
         // ============================================
@@ -396,34 +606,7 @@
         // ============================================
         // FUNCIONES DE PUNTOS
         // ============================================
-        function incrementPoints() {
-            if (currentPoints < 100) {
-                currentPoints++;
-                updatePointsDisplay();
-                updateButtonStates();
-            }
-        }
-
-        function decrementPoints() {
-            if (currentPoints > 1) {
-                currentPoints--;
-                updatePointsDisplay();
-                updateButtonStates();
-            }
-        }
-
-        function setPoints(points) {
-            currentPoints = points;
-            updatePointsDisplay();
-            updateButtonStates();
-            
-            // Highlight the selected preset
-            document.querySelectorAll('.preset-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            event.target.classList.add('active');
-        }
+        
 
         function updatePointsDisplay() {
             document.getElementById('points-number').textContent = currentPoints;
@@ -440,99 +623,7 @@
         // ============================================
         // GENERACIÓN DE QR
         // ============================================
-        async function generateQR() {
-            console.log('📱 Generando QR para', currentPoints, 'puntos');
-            
-            if (typeof QRCode === 'undefined') {
-                showError('Librería QR no cargada, intenta de nuevo');
-                return;
-            }
-            
-            const qrPlaceholder = document.getElementById('qr-placeholder');
-            const qrDisplay = document.getElementById('qr-code-display');
-            const qrLoading = document.getElementById('qr-loading');
-            
-            // Mostrar loading
-            qrPlaceholder.style.display = 'none';
-            qrDisplay.style.display = 'none';
-            qrLoading.style.display = 'block';
-            
-            try {
-                if (!currentUser) {
-                    throw new Error('Usuario no autenticado');
-                }
-                
-                // Generar códigos
-                const qrId = 'qr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                const displayCode = generateDisplayCode();
-                const fullQRCode = `POINTS:${currentUser.uid}:${qrId}:${currentPoints}`;
-                
-                console.log('🎯 Códigos generados:');
-                console.log('   - QR ID:', qrId);
-                console.log('   - Display:', displayCode);
-                console.log('   - QR Completo:', fullQRCode);
-                
-                // Guardar en Firebase (solo si está disponible)
-                if (db) {
-                    const expiresAt = new Date(Date.now() + (5 * 60 * 1000));
-                    await db.collection('qr_codes').doc(qrId).set({
-                        id: qrId,
-                        businessId: currentUser.uid,
-                        points: currentPoints,
-                        displayCode: displayCode,
-                        fullCode: fullQRCode,
-                        used: false,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
-                        status: 'active'
-                    });
-                    console.log('💾 QR guardado en Firebase');
-                }
-                
-                // Generar QR visual con el código COMPLETO
-                const qrCodeElement = document.getElementById('qr-code');
-                qrCodeElement.innerHTML = '';
-                
-                const qrCode = new QRCode(qrCodeElement, {
-                    text: fullQRCode, // ✅ CÓDIGO COMPLETO
-                    width: 250,
-                    height: 250,
-                    colorDark: '#FF8C42',
-                    colorLight: '#1A1A1A',
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-                
-                // Mostrar información
-                document.getElementById('qr-points-display').textContent = currentPoints;
-                document.getElementById('qr-code-text').textContent = displayCode;
-                
-                // Mostrar QR
-                qrLoading.style.display = 'none';
-                qrDisplay.style.display = 'block';
-                
-                // Timer y listener
-                startExpirationTimer(300);
-                if (db) {
-                    listenForQRScans(qrId);
-                }
-                
-                currentQRCode = { 
-                    id: qrId, 
-                    code: fullQRCode, 
-                    displayCode: displayCode,
-                    points: currentPoints,
-                    businessId: currentUser.uid
-                };
-                
-                console.log('✅ QR generado exitosamente');
-                
-            } catch (error) {
-                console.error('❌ Error generando QR:', error);
-                qrLoading.style.display = 'none';
-                qrPlaceholder.style.display = 'block';
-                showError('Error generando QR: ' + error.message);
-            }
-        }
+        
 
         function generateDisplayCode() {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -567,33 +658,7 @@
             showError('El código QR ha expirado');
         }
 
-        function regenerateQR() {
-            clearQR();
-            generateQR();
-        }
-
-        function clearQR() {
-            const qrPlaceholder = document.getElementById('qr-placeholder');
-            const qrDisplay = document.getElementById('qr-code-display');
-            
-            qrDisplay.style.display = 'none';
-            qrPlaceholder.style.display = 'block';
-            
-            // Limpiar timer
-            if (qrExpirationTimer) {
-                clearInterval(qrExpirationTimer);
-                qrExpirationTimer = null;
-            }
-            
-            // Limpiar listener
-            if (qrUsageListener) {
-                qrUsageListener();
-                qrUsageListener = null;
-            }
-            
-            // Limpiar datos del QR
-            currentQRCode = null;
-        }
+        
 
         // ============================================
         // LISTENERS Y CONFIRMACIONES
@@ -678,36 +743,6 @@
             modal.style.display = 'block';
         }
 
-        function closeConfirmationModal() {
-            document.getElementById('confirmation-modal').style.display = 'none';
-        }
-
-        async function confirmTransaction() {
-            console.log('✅ Confirmando transacción...');
-            
-            try {
-                closeConfirmationModal();
-                showSuccessModal();
-                clearQR();
-                
-            } catch (error) {
-                console.error('❌ Error confirmando transacción:', error);
-                showError('Error confirmando transacción: ' + error.message);
-            }
-        }
-
-        function showSuccessModal() {
-            const modal = document.getElementById('success-modal');
-            
-            document.getElementById('success-points').textContent = currentPoints;
-            document.getElementById('success-client').textContent = document.getElementById('modal-client-name').textContent;
-            
-            modal.style.display = 'block';
-        }
-
-        function closeSuccessModal() {
-            document.getElementById('success-modal').style.display = 'none';
-        }
 
         // ============================================
         // FUNCIONES DE UI Y UTILIDADES
@@ -747,32 +782,7 @@
         // ============================================
         // FUNCIONES DE DEBUG
         // ============================================
-        function showDebugInfo() {
-            const info = {
-                firebase: typeof firebase !== 'undefined',
-                auth: !!auth,
-                db: !!db,
-                currentUser: !!currentUser,
-                currentQRCode: !!currentQRCode,
-                qrCode: currentQRCode?.code || 'No generado',
-                points: currentPoints,
-                businessData: !!businessData
-            };
-
-            const infoText = Object.entries(info)
-                .map(([key, value]) => `${key}: ${value}`)
-                .join('\n');
-
-            alert('🔍 DEBUG INFO:\n\n' + infoText + '\n\n' + 
-                  (currentQRCode ? `\nÚltimo QR generado:\n${currentQRCode.code}` : ''));
-            
-            console.log('🔍 Debug Info:', info);
-            
-            if (currentQRCode) {
-                console.log('📱 Último QR:', currentQRCode.code);
-                console.log('💡 Para probar: copia este código y úsalo en el escáner manual');
-            }
-        }
+        
 
         // ============================================
         // EVENT LISTENERS
