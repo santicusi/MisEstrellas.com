@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MisEstrellas - Reportes y Análisis</title>
+    <!-- SDKs de Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<style>
+:root {
+    /* Variables principales */
+    --bg-black: #0F0F0F;
+    --text-white: #FFFFFF;
+    --success-green: #4CAF50;
+    --error-red: #F44336;
+    --warning-yellow: #FFC107;
+    --info-blue: #2196F3;
+    
+    /* Colores principales */
+    --primary-orange: #FF8C42;
+    --hover-orange: #FF7A2B;
+    --accent-orange: #FFA366;
+    --dark-orange: #E67A35;
+    
+    /* Tonos cálidos */
+    --warm-gray: #2A2A2A;
+    --light-warm: #363636;
+    --card-warm: #1F1F1F;
+    --border-warm: #404040;
+    --secondary-gray: #AAA;
+    
+    /* Gradientes */
+    --gradient-card: linear-gradient(135deg, #1F1F1F 0%, #2A2A2A 100%);
+    --gradient-orange: linear-gradient(135deg, #FF8C42 0%, #FFA366 100%);
+    --gradient-dark: linear-gradient(135deg, #0F0F0F 0%, #1F1F1F 100%);
+    --gradient-hero: linear-gradient(135deg, #FF8C42 0%, #FF6B35 50%, #E63946 100%);
+    
+    /* Sombras */
+    --shadow-dark: rgba(0, 0, 0, 0.3);
+    --shadow-orange: rgba(255, 140, 66, 0.2);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg-black);
+    color: var(--text-white);
+    line-height: 1.6;
+    overflow-x: hidden;
+}
+
+.container {
+    min-height: 100vh;
+    position: relative;
+}
+
+/* Header moderno */
+.header {
+    background: var(--gradient-dark);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-warm);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding: 1rem 0;
+}
+
+.header-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 70px;
+}
+
+.back-btn {
+    background: rgba(255, 140, 66, 0.1);
+    border: 1px solid var(--border-warm);
+    border-radius: 12px;
+    color: var(--primary-orange);
+    cursor: pointer;
+    padding: 12px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+}
+
+.back-btn:hover {
+    background: var(--primary-orange);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px var(--shadow-orange);
+}
+
+.header-title {
+    flex: 1;
+    text-align: center;
+}
+
+.header-title h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    background: var(--gradient-orange);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.action-btn {
+    background: rgba(255, 140, 66, 0.1);
+    border: 1px solid var(--border-warm);
+    border-radius: 12px;
+    color: var(--primary-orange);
+    cursor: pointer;
+    padding: 12px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+}
+
+.action-btn:hover {
+    background: var(--primary-orange);
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* Hero Section */
+.hero-section {
+    background: var(--gradient-hero);
+    padding: 3rem 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><radialGradient id="a" cx="50%" cy="50%"><stop offset="0%" stop-color="white" stop-opacity="0.1"/><stop offset="100%" stop-color="white" stop-opacity="0"/></radialGradient></defs><circle cx="200" cy="200" r="150" fill="url(%23a)"/><circle cx="800" cy="300" r="100" fill="url(%23a)"/><circle cx="600" cy="700" r="200" fill="url(%23a)"/></svg>');
+    opacity: 0.3;
+}
+
+.hero-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+}
+
+.hero-title {
+    font-size: 3rem;
+    font-weight: 900;
+    margin-bottom: 1rem;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.hero-subtitle {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    margin-bottom: 2rem;
+}
+
+.hero-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+}
+
+.hero-stat {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 2rem;
+    text-align: center;
+    transition: transform 0.3s ease;
+}
+
+.hero-stat:hover {
+    transform: translateY(-5px);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.hero-stat-number {
+    font-size: 2.5rem;
+    font-weight: 900;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.hero-stat-label {
+    font-size: 1rem;
+    opacity: 0.9;
+    font-weight: 500;
+}
+
+/* Main Content */
+.main-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 3rem 2rem 6rem;
+}
+
+/* Filters Section */
+.filters-section {
+    background: var(--gradient-card);
+    border-radius: 24px;
+    padding: 2rem;
+    margin-bottom: 3rem;
+    border: 1px solid var(--border-warm);
+    box-shadow: 0 8px 32px var(--shadow-dark);
+}
+
+.filters-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--text-white);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    align-items: end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filter-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--secondary-gray);
+}
+
+.filter-input {
+    background: var(--warm-gray);
+    border: 2px solid var(--border-warm);
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: var(--text-white);
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.filter-input:focus {
+    outline: none;
+    border-color: var(--primary-orange);
+}
+
+.filter-btn {
+    background: var(--gradient-orange);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    cursor: pointer;
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px var(--shadow-orange);
+}
+
+/* Charts Section */
+.charts-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.chart-card {
+    background: var(--gradient-card);
+    border-radius: 24px;
+    padding: 2rem;
+    border: 1px solid var(--border-warm);
+    box-shadow: 0 8px 32px var(--shadow-dark);
+    transition: transform 0.3s ease;
+}
+
+.chart-card:hover {
+    transform: translateY(-3px);
+}
+
+.chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
+.chart-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-white);
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+}
+
+/* Activity Section */
+.activity-section {
+    background: var(--gradient-card);
+    border-radius: 24px;
+    padding: 2rem;
+    border: 1px solid var(--border-warm);
+    box-shadow: 0 8px 32px var(--shadow-dark);
+    margin-bottom: 3rem;
+}
+
+.activity-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+
+.activity-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-white);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.activity-filters {
+    display: flex;
+    gap: 12px;
+}
+
+.filter-chip {
+    background: rgba(255, 140, 66, 0.1);
+    border: 1px solid var(--border-warm);
+    border-radius: 20px;
+    padding: 8px 16px;
+    color: var(--primary-orange);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.filter-chip.active {
+    background: var(--primary-orange);
+    color: white;
+}
+
+.filter-chip:hover {
+    background: var(--primary-orange);
+    color: white;
+}
+
+.activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.activity-item {
+    background: var(--warm-gray);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+    border: 1px solid var(--border-warm);
+}
+
+.activity-item:hover {
+    background: var(--light-warm);
+    transform: translateY(-2px);
+}
+
+.activity-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: white;
+    flex-shrink: 0;
+}
+
+.activity-icon.earned {
+    background: var(--gradient-orange);
+}
+
+.activity-icon.redeemed {
+    background: linear-gradient(135deg, #E63946, #F77F00);
+}
+
+.activity-icon.new_client {
+    background: linear-gradient(135deg, #4CAF50, #8BC34A);
+}
+
+.activity-details {
+    flex: 1;
+}
+
+.activity-description {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-white);
+    margin-bottom: 4px;
+}
+
+.activity-meta {
+    font-size: 0.9rem;
+    color: var(--secondary-gray);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.activity-points {
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 12px;
+    flex-shrink: 0;
+}
+
+.activity-points.earned {
+    background: rgba(76, 175, 80, 0.2);
+    color: var(--success-green);
+}
+
+.activity-points.redeemed {
+    background: rgba(244, 67, 54, 0.2);
+    color: var(--error-red);
+}
+
+/* Loading & Empty States */
+.loading {
+    text-align: center;
+    padding: 3rem;
+    color: var(--secondary-gray);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border-warm);
+    border-top: 4px solid var(--primary-orange);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--secondary-gray);
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+/* Navigation */
+.admin-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--gradient-dark);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border-warm);
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    z-index: 100;
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--secondary-gray);
+    transition: all 0.3s ease;
+    min-width: 70px;
+}
+
+.nav-item.active,
+.nav-item:hover {
+    color: var(--primary-orange);
+    background: rgba(255, 140, 66, 0.1);
+}
+
+.nav-item i {
+    font-size: 1.2rem;
+}
+
+.nav-item span {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .header-content {
+        padding: 0 1rem;
+        height: 60px;
+    }
+    
+    .header-title h1 {
+        font-size: 1.4rem;
+    }
+    
+    .hero-section {
+        padding: 2rem 0;
+    }
+    
+    .hero-title {
+        font-size: 2rem;
+    }
+    
+    .hero-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .hero-stat {
+        padding: 1.5rem;
+    }
+    
+    .main-content {
+        padding: 2rem 1rem 6rem;
+    }
+    
+    .filters-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .charts-section {
+        grid-template-columns: 1fr;
+    }
+    
+    .activity-filters {
+        flex-wrap: wrap;
+    }
+    
+    .activity-item {
+        padding: 1rem;
+    }
+    
+    .activity-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .activity-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem;
+    }
+    
+    .activity-details {
+        text-align: center;
+    }
+}
+
+/* Animaciones */
+.fade-in {
+    animation: fadeIn 0.6s ease forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-up {
+    animation: slideUp 0.5s ease forwards;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <button class="back-btn" onclick="window.history.back()">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div class="header-title">
+                    <h1>Reportes y Análisis</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="action-btn" onclick="exportReport()">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="action-btn" onclick="refreshData()">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">Dashboard Completo</h1>
+                <p class="hero-subtitle">Análisis detallado de tu negocio y actividad de clientes</p>
+                
+                <div class="hero-stats">
+                    <div class="hero-stat fade-in">
+                        <div class="hero-stat-number" id="hero-total-clients">0</div>
+                        <div class="hero-stat-label">Clientes Totales</div>
+                    </div>
+                    <div class="hero-stat fade-in">
+                        <div class="hero-stat-number" id="hero-total-points">0</div>
+                        <div class="hero-stat-label">Puntos Otorgados</div>
+                    </div>
+                    <div class="hero-stat fade-in">
+                        <div class="hero-stat-number" id="hero-total-redemptions">0</div>
+                        <div class="hero-stat-label">Canjes Realizados</div>
+                    </div>
+                    <div class="hero-stat fade-in">
+                        <div class="hero-stat-number" id="hero-total-transactions">0</div>
+                        <div class="hero-stat-label">Transacciones</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Filters Section -->
+            <section class="filters-section slide-up">
+                <h2 class="filters-title">
+                    <i class="fas fa-filter"></i>
+                    Filtros de Análisis
+                </h2>
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label class="filter-label">Fecha Desde</label>
+                        <input type="date" class="filter-input" id="date-from">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Fecha Hasta</label>
+                        <input type="date" class="filter-input" id="date-to">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Tipo de Actividad</label>
+                        <select class="filter-input" id="activity-type">
+                            <option value="all">Todas las actividades</option>
+                            <option value="earned">Puntos ganados</option>
+                            <option value="redeemed">Puntos canjeados</option>
+                            <option value="new_client">Clientes nuevos</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <button class="filter-btn" onclick="applyFilters()">
+                            <i class="fas fa-search"></i>
+                            Aplicar Filtros
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Section -->
+            <section class="charts-section">
+                <div class="chart-card slide-up">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Actividad por Día</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="activity-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-card slide-up">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Distribución de Clientes</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="clients-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Activity Section -->
+            <section class="activity-section slide-up">
+                <div class="activity-header">
+                    <h2 class="activity-title">
+                        <i class="fas fa-history"></i>
+                        Actividad Completa
+                    </h2>
+                    <div class="activity-filters">
+                        <button class="filter-chip active" onclick="filterActivity('all')">Todas</button>
+                        <button class="filter-chip" onclick="filterActivity('earned')">Ganados</button>
+                        <button class="filter-chip" onclick="filterActivity('redeemed')">Canjeados</button>
+                        <button class="filter-chip" onclick="filterActivity('new_client')">Nuevos</button>
+                    </div>
+                </div>
+
+                <div class="activity-list" id="activity-list">
+                    <!-- Activity items will be populated by JavaScript -->
+                </div>
+
+                <div class="empty-state" id="activity-empty" style="display: none;">
+                    <div class="empty-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h3>No hay actividad</h3>
+                    <p>No se encontró actividad con los filtros seleccionados</p>
+                </div>
+
+                <div class="loading" id="activity-loading">
+                    <div class="spinner"></div>
+                    <p>Cargando actividad...</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Navigation -->
+        <nav class="admin-nav">
+            <a href="dashboard.html" class="nav-item">
+                <i class="fas fa-chart-bar"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="dar-estrellas.html" class="nav-item">
+                <i class="fas fa-star"></i>
+                <span>Dar Estrellas</span>
+            </a>
+            <a href="clientes.html" class="nav-item">
+                <i class="fas fa-users"></i>
+                <span>Clientes</span>
+            </a>
+            <a href="reportes.html" class="nav-item active">
+                <i class="fas fa-chart-line"></i>
+                <span>Reportes</span>
+            </a>
+            <a href="perfil-negocio.html" class="nav-item">
+                <i class="fas fa-store"></i>
+                <span>Perfil</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/translations.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/firebase-config.js"></script>
+    <script src="../js/auth.js"></script>
+    
+    <script>
+        let currentUser = null;
+        let allActivities = [];
+        let filteredActivities = [];
+        let currentFilter = 'all';
+        let charts = {};
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.auth) {
+                initializeReports();
+            } else {
+                window.addEventListener('firebaseReady', initializeReports);
+            }
+        });
+
+        function initializeReports() {
+            console.log('📊 Inicializando reportes...');
+            
+            window.auth.onAuthStateChanged(function(user) {
+                if (user) {
+                    console.log('✅ Usuario autenticado:', user.uid);
+                    currentUser = user;
+                    initializePage();
+                } else {
+                    console.log('❌ Usuario no autenticado, redirigiendo...');
+                    window.location.href = '../index.html';
+                }
+            });
+        }
+
+        async function initializePage() {
+            try {
+                // Inicializar fechas por defecto
+                initializeDateFilters();
+                
+                // Cargar datos
+                await loadHeroStats();
+                await loadAllActivity();
+                
+                // Inicializar gráficos
+                initializeCharts();
+                
+                console.log('✅ Reportes inicializados');
+                
+            } catch (error) {
+                console.error('❌ Error inicializando reportes:', error);
+                showError('Error cargando reportes: ' + error.message);
+            }
+        }
+
+        function initializeDateFilters() {
+            const now = new Date();
+            const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+            
+            const dateFrom = document.getElementById('date-from');
+            const dateTo = document.getElementById('date-to');
+            
+            dateFrom.value = oneMonthAgo.toISOString().split('T')[0];
+            dateTo.value = now.toISOString().split('T')[0];
+        }
+
+        async function loadHeroStats() {
+            console.log('📈 Cargando estadísticas hero...');
+            
+            try {
+                const stats = await getBusinessStatistics(currentUser.uid);
+                
+                document.getElementById('hero-total-clients').textContent = stats.totalCustomers || 0;
+                document.getElementById('hero-total-points').textContent = stats.totalPointsGiven || 0;
+                document.getElementById('hero-total-redemptions').textContent = stats.totalRedemptions || 0;
+                document.getElementById('hero-total-transactions').textContent = (stats.totalPointsGiven + stats.totalRedemptions) || 0;
+                
+                console.log('✅ Estadísticas hero cargadas');
+                
+            } catch (error) {
+                console.error('❌ Error cargando estadísticas hero:', error);
+            }
+        }
+
+        async function loadAllActivity() {
+            const loading = document.getElementById('activity-loading');
+            const activityList = document.getElementById('activity-list');
+            const emptyState = document.getElementById('activity-empty');
+            
+            loading.style.display = 'block';
+            activityList.style.display = 'none';
+            emptyState.style.display = 'none';
+            
+            try {
+                console.log('📋 Cargando TODA la actividad...');
+                
+                // Cargar todas las transacciones sin límite
+                const transactionsSnapshot = await window.db.collection('transactions')
+                    .where('businessId', '==', currentUser.uid)
+                    .get();
+                
+                console.log('📊 Total transacciones encontradas:', transactionsSnapshot.size);
+                
+                allActivities = [];
+                
+                // Crear un mapa para cachear datos de usuarios
+                const userCache = new Map();
+                
+                for (const doc of transactionsSnapshot.docs) {
+                    const transaction = doc.data();
+                    
+                    // Obtener datos del usuario (con cache)
+                    let clientName = 'Cliente';
+                    if (transaction.userId && !userCache.has(transaction.userId)) {
+                        try {
+                            const userDoc = await window.db.collection('users').doc(transaction.userId).get();
+                            if (userDoc.exists) {
+                                const userData = userDoc.data();
+                                clientName = userData.name || userData.displayName || userData.email || 'Cliente';
+                                userCache.set(transaction.userId, clientName);
+                            }
+                        } catch (error) {
+                            console.warn('⚠️ Error cargando usuario:', error);
+                            userCache.set(transaction.userId, 'Cliente');
+                        }
+                    } else if (userCache.has(transaction.userId)) {
+                        clientName = userCache.get(transaction.userId);
+                    }
+                    
+                    // Crear descripción de actividad
+                    let description = '';
+                    let type = transaction.type || 'earned';
+                    
+                    if (type === 'earned') {
+                        description = `${clientName} ganó ${transaction.points || 0} puntos`;
+                    } else if (type === 'redeemed') {
+                        description = `${clientName} canjeó ${transaction.points || 0} puntos`;
+                    } else {
+                        description = `${clientName} - Actividad reciente`;
+                        type = 'new_client';
+                    }
+                    
+                    allActivities.push({
+                        id: doc.id,
+                        type: type,
+                        description: description,
+                        clientName: clientName,
+                        points: transaction.points || 0,
+                        timestamp: transaction.createdAt?.toDate() || new Date(),
+                        userId: transaction.userId
+                    });
+                }
+                
+                // Ordenar por fecha (más reciente primero)
+                allActivities.sort((a, b) => b.timestamp - a.timestamp);
+                
+                console.log('✅ Actividades procesadas:', allActivities.length);
+                
+                // Aplicar filtros y mostrar
+                applyActivityFilter();
+                
+            } catch (error) {
+                console.error('❌ Error cargando actividad:', error);
+                showError('Error cargando actividad: ' + error.message);
+                
+                emptyState.style.display = 'block';
+                
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function applyActivityFilter() {
+            const activityList = document.getElementById('activity-list');
+            const emptyState = document.getElementById('activity-empty');
+            
+            // Filtrar por tipo
+            if (currentFilter === 'all') {
+                filteredActivities = [...allActivities];
+            } else {
+                filteredActivities = allActivities.filter(activity => activity.type === currentFilter);
+            }
+            
+            // Filtrar por fechas si están seleccionadas
+            const dateFrom = document.getElementById('date-from').value;
+            const dateTo = document.getElementById('date-to').value;
+            
+            if (dateFrom || dateTo) {
+                filteredActivities = filteredActivities.filter(activity => {
+                    const activityDate = activity.timestamp;
+                    
+                    if (dateFrom && activityDate < new Date(dateFrom)) {
+                        return false;
+                    }
+                    
+                    if (dateTo && activityDate > new Date(dateTo + 'T23:59:59')) {
+                        return false;
+                    }
+                    
+                    return true;
+                });
+            }
+            
+            console.log('📊 Actividades filtradas:', filteredActivities.length);
+            
+            if (filteredActivities.length === 0) {
+                activityList.style.display = 'none';
+                emptyState.style.display = 'block';
+            } else {
+                activityList.innerHTML = filteredActivities.map(activity => createActivityItem(activity)).join('');
+                activityList.style.display = 'block';
+                emptyState.style.display = 'none';
+            }
+        }
+
+        function createActivityItem(activity) {
+            const timeAgo = formatTimeAgo(activity.timestamp);
+            const dateFormatted = activity.timestamp.toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            return `
+                <div class="activity-item slide-up">
+                    <div class="activity-icon ${activity.type}">
+                        <i class="fas ${getActivityIcon(activity.type)}"></i>
+                    </div>
+                    <div class="activity-details">
+                        <div class="activity-description">${activity.description}</div>
+                        <div class="activity-meta">
+                            <span><i class="fas fa-clock"></i> ${timeAgo}</span>
+                            <span><i class="fas fa-calendar"></i> ${dateFormatted}</span>
+                            ${activity.userId ? `<span><i class="fas fa-user"></i> ID: ${activity.userId.slice(-8)}</span>` : ''}
+                        </div>
+                    </div>
+                    ${activity.points > 0 ? `<div class="activity-points ${activity.type}">
+                        ${activity.type === 'earned' ? '+' : '-'}${activity.points}
+                    </div>` : ''}
+                </div>
+            `;
+        }
+
+        function getActivityIcon(type) {
+            switch (type) {
+                case 'earned':
+                    return 'fa-star';
+                case 'redeemed':
+                    return 'fa-gift';
+                case 'new_client':
+                    return 'fa-user-plus';
+                default:
+                    return 'fa-circle';
+            }
+        }
+
+        function filterActivity(type) {
+            console.log('🔍 Filtrando actividad por:', type);
+            
+            // Actualizar botones activos
+            document.querySelectorAll('.filter-chip').forEach(chip => {
+                chip.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            currentFilter = type;
+            applyActivityFilter();
+        }
+
+        function applyFilters() {
+            console.log('🔍 Aplicando filtros de fecha...');
+            applyActivityFilter();
+            updateCharts();
+        }
+
+        function initializeCharts() {
+            console.log('📊 Inicializando gráficos...');
+            
+            // Gráfico de actividad por día
+            const activityCtx = document.getElementById('activity-chart').getContext('2d');
+            charts.activity = new Chart(activityCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Puntos Ganados',
+                        data: [],
+                        borderColor: '#FF8C42',
+                        backgroundColor: 'rgba(255, 140, 66, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: 'Puntos Canjeados',
+                        data: [],
+                        borderColor: '#E63946',
+                        backgroundColor: 'rgba(230, 57, 70, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#FFFFFF'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#AAA'
+                            },
+                            grid: {
+                                color: '#404040'
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                color: '#AAA'
+                            },
+                            grid: {
+                                color: '#404040'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Gráfico de distribución de clientes
+            const clientsCtx = document.getElementById('clients-chart').getContext('2d');
+            charts.clients = new Chart(clientsCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Clientes Totales', 'Clientes Afiliados', 'Clientes Recurrentes'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: [
+                            '#FF8C42',
+                            '#FFA366',
+                            '#E67A35'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#FFFFFF',
+                                padding: 20
+                            }
+                        }
+                    }
+                }
+            });
+            
+            updateCharts();
+        }
+
+        async function updateCharts() {
+            try {
+                // Obtener datos para gráficos
+                const stats = await getBusinessStatistics(currentUser.uid);
+                
+                // Actualizar gráfico de distribución
+                charts.clients.data.datasets[0].data = [
+                    stats.totalCustomers || 0,
+                    Math.floor((stats.totalCustomers || 0) * 0.6), // Estimado afiliados
+                    Math.floor((stats.totalCustomers || 0) * 0.3)  // Estimado recurrentes
+                ];
+                charts.clients.update();
+                
+                // Actualizar gráfico de actividad (últimos 7 días)
+                const last7Days = getLast7Days();
+                const earnedData = [];
+                const redeemedData = [];
+                
+                last7Days.forEach(date => {
+                    const dayActivities = filteredActivities.filter(activity => {
+                        const activityDate = activity.timestamp.toDateString();
+                        return activityDate === date.toDateString();
+                    });
+                    
+                    const earned = dayActivities
+                        .filter(a => a.type === 'earned')
+                        .reduce((sum, a) => sum + a.points, 0);
+                    
+                    const redeemed = dayActivities
+                        .filter(a => a.type === 'redeemed')
+                        .reduce((sum, a) => sum + a.points, 0);
+                    
+                    earnedData.push(earned);
+                    redeemedData.push(redeemed);
+                });
+                
+                charts.activity.data.labels = last7Days.map(date => 
+                    date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' })
+                );
+                charts.activity.data.datasets[0].data = earnedData;
+                charts.activity.data.datasets[1].data = redeemedData;
+                charts.activity.update();
+                
+            } catch (error) {
+                console.error('❌ Error actualizando gráficos:', error);
+            }
+        }
+
+        function getLast7Days() {
+            const days = [];
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                days.push(date);
+            }
+            return days;
+        }
+
+        async function getBusinessStatistics(businessId) {
+            try {
+                console.log('📊 Cargando estadísticas del negocio...');
+                
+                // Intentar desde analytics primero
+                const analyticsDoc = await window.db.collection('analytics').doc(businessId).get();
+                if (analyticsDoc.exists) {
+                    const data = analyticsDoc.data();
+                    return {
+                        totalCustomers: data.totalClients || 0,
+                        totalPointsGiven: data.pointsGiven || 0,
+                        totalRedemptions: data.pointsRedeemed || 0
+                    };
+                }
+                
+                // Calcular desde transacciones si no hay analytics
+                const transactionsSnapshot = await window.db.collection('transactions')
+                    .where('businessId', '==', businessId)
+                    .get();
+                
+                const uniqueCustomers = new Set();
+                let totalPointsGiven = 0;
+                let totalRedemptions = 0;
+                
+                transactionsSnapshot.forEach(doc => {
+                    const transaction = doc.data();
+                    uniqueCustomers.add(transaction.userId);
+                    
+                    if (transaction.type === 'earned') {
+                        totalPointsGiven += transaction.points || 0;
+                    } else if (transaction.type === 'redeemed') {
+                        totalRedemptions += transaction.points || 0;
+                    }
+                });
+                
+                return {
+                    totalCustomers: uniqueCustomers.size,
+                    totalPointsGiven,
+                    totalRedemptions
+                };
+                
+            } catch (error) {
+                console.error('❌ Error cargando estadísticas:', error);
+                return {
+                    totalCustomers: 0,
+                    totalPointsGiven: 0,
+                    totalRedemptions: 0
+                };
+            }
+        }
+
+        function formatTimeAgo(timestamp) {
+            const now = new Date();
+            const then = new Date(timestamp);
+            const diff = now - then;
+            
+            const seconds = Math.floor(diff / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (seconds < 60) {
+                return 'Hace unos segundos';
+            } else if (minutes < 60) {
+                return `Hace ${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`;
+            } else if (hours < 24) {
+                return `Hace ${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+            } else if (days < 30) {
+                return `Hace ${days} ${days === 1 ? 'día' : 'días'}`;
+            } else {
+                return then.toLocaleDateString('es-ES');
+            }
+        }
+
+        function exportReport() {
+            console.log('📥 Exportando reporte...');
+            
+            // Crear contenido del reporte
+            const reportData = {
+                business: currentUser.email,
+                generatedAt: new Date().toISOString(),
+                totalActivities: allActivities.length,
+                filteredActivities: filteredActivities.length,
+                activities: filteredActivities.map(activity => ({
+                    type: activity.type,
+                    description: activity.description,
+                    points: activity.points,
+                    date: activity.timestamp.toISOString(),
+                    client: activity.clientName
+                }))
+            };
+            
+            // Crear y descargar archivo JSON
+            const blob = new Blob([JSON.stringify(reportData, null, 2)], {
+                type: 'application/json'
+            });
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reporte-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showSuccess('Reporte exportado exitosamente');
+        }
+
+        async function refreshData() {
+            console.log('🔄 Refrescando datos...');
+            
+            const refreshBtn = document.querySelector('.action-btn i.fa-sync-alt');
+            refreshBtn.style.animation = 'spin 1s linear infinite';
+            
+            try {
+                await loadHeroStats();
+                await loadAllActivity();
+                updateCharts();
+                
+                showSuccess('Datos actualizados');
+                
+            } catch (error) {
+                console.error('❌ Error refrescando:', error);
+                showError('Error actualizando datos');
+                
+            } finally {
+                refreshBtn.style.animation = '';
+            }
+        }
+
+        function showSuccess(message) {
+            // Crear toast de éxito
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #4CAF50;
+                color: white;
+                padding: 16px 24px;
+                border-radius: 12px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                z-index: 10000;
+                font-weight: 500;
+                animation: slideIn 0.3s ease;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, 3000);
+        }
+
+        function showError(message) {
+            // Crear toast de error
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #F44336;
+                color: white;
+                padding: 16px 24px;
+                border-radius: 12px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                z-index: 10000;
+                font-weight: 500;
+                animation: slideIn 0.3s ease;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, 5000);
+        }
+
+        // Agregar estilos de animación para los toasts
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            
+            @keyframes slideOut {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        console.log('📊 Reportes.html cargado completamente');
+    </script>
+</body>
+</html>

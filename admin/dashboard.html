@@ -617,10 +617,10 @@ img {
                             </div>
                         </div>
                         <div class="stat-number" id="unique-clients">0</div>
-                        <div class="stat-label" data-translate="unique_clients">Clientes únicos</div>
+                        <div class="stat-label">Clientes Totales</div>
                         <div class="stat-change positive">
-                            <i class="fas fa-arrow-up"></i>
-                            +12% <span class="stat-period">este mes</span>
+                            <i class="fas fa-info-circle"></i>
+                            Mínimo 1 visita
                         </div>
                     </div>
                     
@@ -631,10 +631,10 @@ img {
                             </div>
                         </div>
                         <div class="stat-number" id="recurring-clients">0</div>
-                        <div class="stat-label" data-translate="recurring_clients">Clientes recurrentes</div>
+                        <div class="stat-label">Clientes Afiliados</div>
                         <div class="stat-change positive">
-                            <i class="fas fa-arrow-up"></i>
-                            +8% <span class="stat-period">este mes</span>
+                            <i class="fas fa-info-circle"></i>
+                            Mínimo 2 visitas
                         </div>
                     </div>
                     
@@ -645,10 +645,10 @@ img {
                             </div>
                         </div>
                         <div class="stat-number" id="active-clients">0</div>
-                        <div class="stat-label" data-translate="active_clients">Clientes activos</div>
+                        <div class="stat-label">Clientes Recurrentes</div>
                         <div class="stat-change neutral">
-                            <i class="fas fa-clock"></i>
-                            7 días
+                            <i class="fas fa-info-circle"></i>
+                            3+ visitas
                         </div>
                     </div>
                     
@@ -659,10 +659,10 @@ img {
                             </div>
                         </div>
                         <div class="stat-number" id="new-clients">0</div>
-                        <div class="stat-label" data-translate="new_clients">Clientes nuevos</div>
+                        <div class="stat-label">Clientes Nuevos</div>
                         <div class="stat-change positive">
-                            <i class="fas fa-arrow-up"></i>
-                            +15% <span class="stat-period">este mes</span>
+                            <i class="fas fa-calendar"></i>
+                            Este mes
                         </div>
                     </div>
                 </div>
@@ -962,19 +962,23 @@ img {
             }
         }
 
+        // 🔥 FUNCIÓN ACTUALIZADA PARA CREAR ITEMS DE ACTIVIDAD EN DASHBOARD
         function createActivityItem(activity) {
             const timeAgo = formatTimeAgo(activity.timestamp);
             const iconClass = getActivityIcon(activity.type);
             
             return `
                 <div class="activity-item">
-                    <div class="activity-icon">
+                    <div class="activity-icon ${activity.type === 'points_redeemed' ? 'redeemed' : 'earned'}">
                         <i class="${iconClass}"></i>
                     </div>
-                    <div class="activity-content">
-                        <p class="activity-text">${activity.description}</p>
-                        <span class="activity-time">${timeAgo}</span>
+                    <div class="activity-details">
+                        <div class="activity-description">${activity.description}</div>
+                        <div class="activity-time">${timeAgo}</div>
                     </div>
+                    ${activity.points > 0 ? `<div class="activity-points ${activity.type === 'points_redeemed' ? 'redeemed' : 'earned'}">
+                        ${activity.type === 'points_redeemed' ? '-' : '+'}${activity.points}
+                    </div>` : ''}
                 </div>
             `;
         }
@@ -1050,108 +1054,148 @@ img {
         }
 
         // 🔥 FUNCIONES FIREBASE OPTIMIZADAS
+        // 🔥 FUNCIÓN MEJORADA PARA CARGAR ESTADÍSTICAS REALES
         async function cargarEstadisticas(businessId) {
-            console.log('📊 Loading statistics for business:', businessId);
+            console.log('📊 Cargando estadísticas REALES para negocio:', businessId);
             
             try {
-                let finalStats = {
-                    totalClients: 0,
-                    activeClients: 0,
-                    recurringClients: 0,
-                    newClientsThisMonth: 0,
-                    pointsGiven: 0,
-                    pointsRedeemed: 0,
-                    totalTransactions: 0
-                };
-
-                // 1. Intentar analytics primero
-                try {
-                    const analyticsDoc = await window.db.collection('analytics').doc(businessId).get();
-                    if (analyticsDoc.exists) {
-                        const analyticsData = analyticsDoc.data();
-                        console.log('📊 Analytics data:', analyticsData);
-                        
-                        // Si analytics tiene datos útiles, usarlos
-                        if (analyticsData.uniqueClients > 0 || analyticsData.totalTransactions > 0) {
-                            finalStats = {
-                                totalClients: analyticsData.uniqueClients || 0,
-                                activeClients: analyticsData.activeClients || 0,
-                                recurringClients: analyticsData.recurringClients || 0,
-                                newClientsThisMonth: analyticsData.newClients || 0,
-                                pointsGiven: analyticsData.pointsGiven || 0,
-                                pointsRedeemed: analyticsData.pointsRedeemed || 0,
-                                totalTransactions: analyticsData.totalTransactions || 0
-                            };
-                            console.log('✅ Usando datos de analytics');
-                            return finalStats;
-                        }
-                    }
-                } catch (error) {
-                    console.warn('⚠️ Error obteniendo analytics:', error);
-                }
-
-                // 2. Si analytics está vacío, usar businesses
-                try {
-                    const businessDoc = await window.db.collection('businesses').doc(businessId).get();
-                    if (businessDoc.exists) {
-                        const businessData = businessDoc.data();
-                        console.log('🏢 Business data:', businessData);
-                        
-                        finalStats = {
-                            totalClients: businessData.totalClients || 0,
-                            activeClients: Math.floor((businessData.totalClients || 0) * 0.3), // 30% estimado
-                            recurringClients: Math.floor((businessData.totalClients || 0) * 0.15), // 15% estimado
-                            newClientsThisMonth: businessData.newClients || Math.floor((businessData.totalClients || 0) * 0.1),
-                            pointsGiven: businessData.totalPointsGiven || 0,
-                            pointsRedeemed: businessData.totalRedemptions || 0,
-                            totalTransactions: businessData.totalTransactions || businessData.totalClients || 0
-                        };
-                        console.log('✅ Usando datos de businesses:', finalStats);
-                        return finalStats;
-                    }
-                } catch (error) {
-                    console.warn('⚠️ Error obteniendo business data:', error);
-                }
-
-                // 3. Fallback: calcular desde transacciones
-                console.log('📊 Calculando desde transacciones...');
+                if (!window.db) throw new Error('Firestore no está inicializado');
+                
+                // Obtener TODAS las transacciones del negocio (sin límite para cálculos precisos)
+                console.log('🔍 Consultando transacciones...');
                 const transactionsSnapshot = await window.db.collection('transactions')
                     .where('businessId', '==', businessId)
-                    .limit(100)
                     .get();
                 
-                if (!transactionsSnapshot.empty) {
-                    const uniqueClients = new Set();
-                    let totalPointsGiven = 0;
-                    let totalPointsRedeemed = 0;
-                    
-                    transactionsSnapshot.forEach(doc => {
-                        const transaction = doc.data();
-                        uniqueClients.add(transaction.userId);
-                        
-                        if (transaction.type === 'earned') {
-                            totalPointsGiven += transaction.points || 0;
-                        } else if (transaction.type === 'redeemed') {
-                            totalPointsRedeemed += transaction.points || 0;
-                        }
-                    });
-                    
-                    finalStats = {
-                        totalClients: uniqueClients.size,
-                        activeClients: Math.floor(uniqueClients.size * 0.3),
-                        recurringClients: Math.floor(uniqueClients.size * 0.15),
-                        newClientsThisMonth: Math.floor(uniqueClients.size * 0.1),
-                        pointsGiven: totalPointsGiven,
-                        pointsRedeemed: totalPointsRedeemed,
-                        totalTransactions: transactionsSnapshot.size
+                console.log('📋 Transacciones encontradas:', transactionsSnapshot.size);
+                
+                if (transactionsSnapshot.empty) {
+                    console.log('📭 No hay transacciones, retornando ceros');
+                    return {
+                        totalClients: 0,
+                        activeClients: 0,
+                        recurringClients: 0,
+                        newClientsThisMonth: 0,
+                        pointsGiven: 0,
+                        pointsRedeemed: 0,
+                        totalTransactions: 0
                     };
-                    console.log('✅ Calculado desde transacciones:', finalStats);
+                }
+                
+                // Estructura para contar visitas por cliente
+                const clientVisits = {}; // { userId: { visits: number, firstVisit: Date, lastVisit: Date } }
+                let totalPointsGiven = 0;
+                let totalPointsRedeemed = 0;
+                
+                // Procesar cada transacción
+                transactionsSnapshot.forEach(doc => {
+                    const transaction = doc.data();
+                    const userId = transaction.userId;
+                    const points = transaction.points || 0;
+                    const transactionDate = transaction.createdAt?.toDate() || new Date();
+                    
+                    if (!userId) return; // Saltar transacciones sin usuario
+                    
+                    // Inicializar cliente si no existe
+                    if (!clientVisits[userId]) {
+                        clientVisits[userId] = {
+                            visits: 0,
+                            firstVisit: transactionDate,
+                            lastVisit: transactionDate
+                        };
+                    }
+                    
+                    // Contar solo transacciones de 'earned' como visitas
+                    if (transaction.type === 'earned') {
+                        clientVisits[userId].visits++;
+                        totalPointsGiven += points;
+                        
+                        // Actualizar fechas
+                        if (transactionDate < clientVisits[userId].firstVisit) {
+                            clientVisits[userId].firstVisit = transactionDate;
+                        }
+                        if (transactionDate > clientVisits[userId].lastVisit) {
+                            clientVisits[userId].lastVisit = transactionDate;
+                        }
+                    } else if (transaction.type === 'redeemed') {
+                        totalPointsRedeemed += points;
+                    }
+                });
+                
+                // Calcular fechas para "este mes"
+                const now = new Date();
+                const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                
+                console.log('📅 Calculando para este mes desde:', thisMonthStart.toLocaleDateString());
+                
+                // Calcular métricas específicas
+                let totalClients = 0;           // Clientes con mínimo 1 visita
+                let activeClients = 0;          // Clientes con mínimo 2 visitas  
+                let newClientsThisMonth = 0;    // Clientes nuevos este mes
+                let recurringClients = 0;       // Clientes con 3+ visitas
+                
+                for (const [userId, data] of Object.entries(clientVisits)) {
+                    const visits = data.visits;
+                    const firstVisit = data.firstVisit;
+                    
+                    // 1. Clientes totales: han reclamado mínimo 1 vez
+                    if (visits >= 1) {
+                        totalClients++;
+                    }
+                    
+                    // 2. Clientes afiliados: han reclamado mínimo 2 veces
+                    if (visits >= 2) {
+                        activeClients++;
+                    }
+                    
+                    // 3. Clientes nuevos: primera visita este mes
+                    if (firstVisit >= thisMonthStart) {
+                        newClientsThisMonth++;
+                    }
+                    
+                    // 4. Clientes recurrentes: 3+ visitas
+                    if (visits >= 3) {
+                        recurringClients++;
+                    }
+                }
+                
+                const finalStats = {
+                    totalClients: totalClients,
+                    activeClients: activeClients,           // Clientes afiliados (2+ visitas)
+                    recurringClients: recurringClients,     // Clientes recurrentes (3+ visitas)
+                    newClientsThisMonth: newClientsThisMonth,
+                    pointsGiven: totalPointsGiven,
+                    pointsRedeemed: totalPointsRedeemed,
+                    totalTransactions: transactionsSnapshot.size
+                };
+                
+                console.log('✅ ESTADÍSTICAS CALCULADAS:');
+                console.log('  📊 Clientes totales (1+ visitas):', totalClients);
+                console.log('  🤝 Clientes afiliados (2+ visitas):', activeClients);
+                console.log('  🔄 Clientes recurrentes (3+ visitas):', recurringClients);
+                console.log('  🆕 Clientes nuevos este mes:', newClientsThisMonth);
+                console.log('  ⭐ Total puntos dados:', totalPointsGiven);
+                console.log('  🎁 Total puntos canjeados:', totalPointsRedeemed);
+                console.log('  📋 Total transacciones:', transactionsSnapshot.size);
+                
+                // Guardar en analytics para cache
+                try {
+                    await window.db.collection('analytics').doc(businessId).set({
+                        ...finalStats,
+                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                        calculatedAt: new Date()
+                    }, { merge: true });
+                    console.log('💾 Estadísticas guardadas en analytics');
+                } catch (error) {
+                    console.warn('⚠️ Error guardando analytics:', error);
                 }
                 
                 return finalStats;
                 
             } catch (error) {
-                console.error('❌ Error loading statistics:', error);
+                console.error('❌ Error cargando estadísticas:', error);
+                
+                // Retornar estructura vacía en caso de error
                 return {
                     totalClients: 0,
                     activeClients: 0,
@@ -1164,12 +1208,15 @@ img {
             }
         }
 
+        // 🔥 FUNCIÓN MEJORADA PARA CALCULAR MÉTRICAS
         function calcularMetricas(data) {
+            console.log('📈 Calculando métricas para UI:', data);
+            
             return {
-                uniqueClients: data.totalClients || 0,
-                recurringClients: data.recurringClients || 0,
-                activeClients: data.activeClients || 0,
-                newClients: data.newClientsThisMonth || 0
+                uniqueClients: data.totalClients || 0,        // Clientes totales (1+ visitas)
+                recurringClients: data.activeClients || 0,    // Clientes afiliados (2+ visitas) 
+                activeClients: data.recurringClients || 0,    // Clientes recurrentes (3+ visitas)
+                newClients: data.newClientsThisMonth || 0     // Clientes nuevos este mes
             };
         }
 
@@ -1225,14 +1272,15 @@ img {
             }
         }
 
+        // 🔥 FUNCIÓN ACTUALIZADA PARA MOSTRAR SOLO 3 ACTIVIDADES RECIENTES
         async function getRecentActivity(businessId) {
-            console.log('📋 Loading recent activity for business:', businessId);
+            console.log('📋 Cargando actividad reciente (últimas 3)...');
             
             try {
-                // Simplificar consulta para evitar errores de índice
+                // Obtener transacciones más recientes (limitar a 10 para procesar y tomar las 3 mejores)
                 const transactionsSnapshot = await window.db.collection('transactions')
                     .where('businessId', '==', businessId)
-                    .limit(5)
+                    .limit(10)
                     .get();
                 
                 const activities = [];
@@ -1247,7 +1295,7 @@ img {
                             const userDoc = await window.db.collection('users').doc(transaction.userId).get();
                             if (userDoc.exists) {
                                 const userData = userDoc.data();
-                                clientName = userData.displayName || userData.email || 'Cliente';
+                                clientName = userData.name || userData.displayName || userData.email || 'Cliente';
                                 // Limpiar comillas si existen
                                 clientName = clientName.replace(/['"]/g, '');
                             }
@@ -1274,11 +1322,18 @@ img {
                         id: doc.id,
                         type: type,
                         description: description,
-                        timestamp: transaction.createdAt?.toDate() || new Date()
+                        timestamp: transaction.createdAt?.toDate() || new Date(),
+                        points: transaction.points || 0
                     });
                 }
                 
-                return activities;
+                // Ordenar por fecha más reciente y tomar solo las 3 primeras
+                activities.sort((a, b) => b.timestamp - a.timestamp);
+                const recentActivities = activities.slice(0, 3);
+                
+                console.log('✅ Últimas 3 actividades cargadas:', recentActivities.length);
+                
+                return recentActivities;
                 
             } catch (error) {
                 console.error('❌ Error loading recent activity:', error);
@@ -1603,6 +1658,99 @@ img {
                     alert('¡Enlace copiado al portapapeles!');
                 });
             }
+        }
+
+        // 🔍 FUNCIÓN DE DEBUG PARA VERIFICAR ESTADÍSTICAS
+        window.debugEstadisticas = async function() {
+            if (!currentUser) {
+                console.log('❌ No hay usuario autenticado');
+                return;
+            }
+            
+            console.log('🔍 DEBUGGING ESTADÍSTICAS...');
+            console.log('👤 Usuario:', currentUser.uid);
+            
+            try {
+                // Obtener transacciones raw
+                const transactionsSnapshot = await window.db.collection('transactions')
+                    .where('businessId', '==', currentUser.uid)
+                    .get();
+                
+                console.log('📋 Total transacciones:', transactionsSnapshot.size);
+                
+                // Agrupar por cliente
+                const clientData = {};
+                
+                transactionsSnapshot.forEach(doc => {
+                    const transaction = doc.data();
+                    const userId = transaction.userId;
+                    
+                    if (!userId) return;
+                    
+                    if (!clientData[userId]) {
+                        clientData[userId] = {
+                            earned: 0,
+                            redeemed: 0,
+                            visits: 0,
+                            transactions: []
+                        };
+                    }
+                    
+                    if (transaction.type === 'earned') {
+                        clientData[userId].visits++;
+                        clientData[userId].earned += transaction.points || 0;
+                    } else if (transaction.type === 'redeemed') {
+                        clientData[userId].redeemed += transaction.points || 0;
+                    }
+                    
+                    clientData[userId].transactions.push({
+                        type: transaction.type,
+                        points: transaction.points,
+                        date: transaction.createdAt?.toDate()
+                    });
+                });
+                
+                console.log('👥 RESUMEN POR CLIENTE:');
+                let totalClients = 0;
+                let afiliados = 0;
+                let recurrentes = 0;
+                
+                for (const [userId, data] of Object.entries(clientData)) {
+                    console.log(`  👤 ${userId.slice(-8)}: ${data.visits} visitas, ${data.earned} ganados`);
+                    
+                    if (data.visits >= 1) totalClients++;
+                    if (data.visits >= 2) afiliados++;
+                    if (data.visits >= 3) recurrentes++;
+                }
+                
+                console.log('📊 TOTALES:');
+                console.log('  - Clientes totales (1+):', totalClients);
+                console.log('  - Clientes afiliados (2+):', afiliados);
+                console.log('  - Clientes recurrentes (3+):', recurrentes);
+                
+                return {
+                    totalTransactions: transactionsSnapshot.size,
+                    uniqueClients: Object.keys(clientData).length,
+                    totalClients,
+                    afiliados,
+                    recurrentes,
+                    clientData
+                };
+                
+            } catch (error) {
+                console.error('❌ Error en debug:', error);
+                return null;
+            }
+        };
+
+        // Ejecutar automáticamente en desarrollo
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            // Ejecutar debug después de cargar el dashboard
+            setTimeout(() => {
+                if (currentUser && window.debugEstadisticas) {
+                    window.debugEstadisticas();
+                }
+            }, 3000);
         }
     </script>
 </body>
