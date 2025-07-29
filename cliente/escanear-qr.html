@@ -688,7 +688,7 @@
     </div>
 
     <!-- Scripts -->
-     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     <script src="../js/firebase-config.js"></script>
 
@@ -705,25 +705,34 @@
         // Función para verificar si jsQR está cargado
         function waitForJsQR() {
             return new Promise((resolve) => {
-                if (typeof jsQR !== 'undefined') {
-                    resolve();
-                    return;
-                }
-                
                 let attempts = 0;
                 const checkInterval = setInterval(() => {
                     attempts++;
+                    console.log(`🔍 Intento ${attempts}: jsQR disponible?`, typeof jsQR !== 'undefined');
+                    
                     if (typeof jsQR !== 'undefined') {
                         clearInterval(checkInterval);
-                        console.log('✅ jsQR cargado después de', attempts, 'intentos');
-                        resolve();
-                    } else if (attempts > 50) { // 5 segundos máximo
+                        console.log('✅ jsQR encontrado!');
+                        resolve(true);
+                    } else if (attempts > 100) { // 10 segundos máximo
                         clearInterval(checkInterval);
-                        console.error('❌ jsQR no se cargó después de 5 segundos');
-                        resolve(); // Resolver de todas formas para no bloquear
+                        console.error('❌ jsQR no disponible después de 10 segundos');
+                        resolve(false);
                     }
                 }, 100);
             });
+        }
+
+        console.log('🔍 Verificando jsQR:', typeof jsQR);
+        if (typeof jsQR === 'undefined') {
+            console.error('❌ jsQR no se cargó desde el CDN');
+            // Cargar desde CDN alternativo
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js';
+            script.onload = () => console.log('✅ jsQR cargado desde CDN alternativo');
+            document.head.appendChild(script);
+        } else {
+            console.log('✅ jsQR cargado correctamente');
         }
 
         // ==========================================
@@ -810,7 +819,11 @@
                 await startCamera();
                 
                 // Esperar a que jsQR esté disponible
-                await waitForJsQR();
+                const jsQRLoaded = await waitForJsQR();
+                
+                if (!jsQRLoaded) {
+                    throw new Error('No se pudo cargar la librería jsQR. Recarga la página.');
+                }
                 
                 startScanning();
                 console.log('✅ Escáner inicializado correctamente');
