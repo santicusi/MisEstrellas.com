@@ -270,6 +270,14 @@
 
         function initializePage() {
             console.log('🔥 Firebase listo, inicializando página');
+            
+            // Verificar que firebase-config esté cargado
+            if (!window.crearQRPuntos) {
+                console.error('❌ firebase-config.js no se cargó correctamente');
+                showError('Error: Configuración de Firebase no cargada');
+                return;
+            }
+            
             checkAuthentication();
             updateTexts();
             updatePointsDisplay();
@@ -281,7 +289,7 @@
             
             try {
                 // Usar la función waitForAuth del firebase-config
-                currentUser = await window.waitForAuth();
+                currentUser = await window.FirebaseUtils.waitForAuth();
                 
                 if (!currentUser) {
                     console.log('❌ Usuario no autenticado, usando modo debug');
@@ -384,7 +392,7 @@
                 }
                 
                 // Crear QR usando la función de Firebase
-                const qrData = await crearQRPuntos(currentPoints, currentUser.uid);
+                const qrData = await window.crearQRPuntos(currentPoints, currentUser.uid);
                 console.log('✅ QR creado:', qrData);
                 
                 // Generar código QR visual
@@ -485,7 +493,7 @@
             
             try {
                 // Usar la función de Firebase para escuchar cambios
-                qrUsageListener = listenForQRUsage(qrId, (qrData) => {
+                qrUsageListener = window.listenForQRUsage(qrId, (qrData) => {
                     console.log('🎉 QR usado:', qrData);
                     onQRScanned(qrData);
                 });
@@ -504,7 +512,7 @@
                     showConfirmationModal(qrData.clientData);
                 } else if (qrData.usedBy) {
                     // Si no tenemos clientData, buscar los datos del usuario
-                    const clientData = await getUserData(qrData.usedBy);
+                    const clientData = await window.getUserData(qrData.usedBy);
                     if (clientData) {
                         showConfirmationModal({
                             name: clientData.name || clientData.displayName || 'Cliente',
@@ -644,17 +652,7 @@
             console.log('🌐 Actualizando textos...');
         }
 
-        const FirebaseUtils = {
-            waitForAuth: () => {
-                return new Promise((resolve) => {
-                    const unsubscribe = auth.onAuthStateChanged((user) => {
-                        unsubscribe();
-                        resolve(user);
-                    });
-                });
-            }
-        };
-
+    
         // Cerrar modales al hacer clic fuera
         window.onclick = function(event) {
             const confirmationModal = document.getElementById('confirmation-modal');
