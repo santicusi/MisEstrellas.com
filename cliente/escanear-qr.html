@@ -702,6 +702,30 @@
         let currentUser = null;
         let qrProcessingData = null;
 
+        // Función para verificar si jsQR está cargado
+        function waitForJsQR() {
+            return new Promise((resolve) => {
+                if (typeof jsQR !== 'undefined') {
+                    resolve();
+                    return;
+                }
+                
+                let attempts = 0;
+                const checkInterval = setInterval(() => {
+                    attempts++;
+                    if (typeof jsQR !== 'undefined') {
+                        clearInterval(checkInterval);
+                        console.log('✅ jsQR cargado después de', attempts, 'intentos');
+                        resolve();
+                    } else if (attempts > 50) { // 5 segundos máximo
+                        clearInterval(checkInterval);
+                        console.error('❌ jsQR no se cargó después de 5 segundos');
+                        resolve(); // Resolver de todas formas para no bloquear
+                    }
+                }, 100);
+            });
+        }
+
         // ==========================================
         // INICIALIZACIÓN
         // ==========================================
@@ -784,6 +808,10 @@
 
             try {
                 await startCamera();
+                
+                // Esperar a que jsQR esté disponible
+                await waitForJsQR();
+                
                 startScanning();
                 console.log('✅ Escáner inicializado correctamente');
             } catch (error) {
@@ -856,9 +884,8 @@
                 console.log('👁️ Iniciando escaneo...');
                 isScanning = true;
                 scanFrame();
-            } else if (typeof window.jsQR === 'undefined') {
-                console.warn('⚠️ jsQR no está disponible, reintentando...');
-                setTimeout(startScanning, 1000);
+            } else {
+                console.warn('⚠️ jsQR aún no está disponible');
             }
         }
 
@@ -982,7 +1009,7 @@
                 setTimeout(() => updateStatus(status, iconClass), 100);
                 return;
             }
-            
+
             const statusIcon = document.querySelector('.status-icon i');
             const statusText = document.getElementById('status-text');
             
