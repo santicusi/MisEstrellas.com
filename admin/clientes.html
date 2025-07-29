@@ -1957,49 +1957,93 @@
                     
                     context.drawImage(video, 0, 0, canvas.width, canvas.height);
                     
-                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                    
-                    // Verificar que los datos de imagen sean válidos
-                    if (imageData && imageData.data && imageData.width && imageData.height) {
+                    // VALIDACIÓN MEJORADA: Verificar que getImageData funcione correctamente
+                    try {
+                        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
                         
-                        // REDUCIR LOGS: Solo cada 30 frames (1 segundo aprox)
-                        if (Math.random() < 0.03) {
-                            console.log('🔍 Escaneando... (imagen válida)');
+                        // Verificar que imageData tenga las propiedades necesarias
+                        if (!imageData || !imageData.data || !imageData.width || !imageData.height) {
+                            console.warn('⚠️ ImageData inválido:', {
+                                exists: !!imageData,
+                                hasData: !!(imageData && imageData.data),
+                                width: imageData ? imageData.width : 'undefined',
+                                height: imageData ? imageData.height : 'undefined'
+                            });
+                            
+                            // Continuar al siguiente frame
+                            if (redeemScannerActive) {
+                                requestAnimationFrame(scanRedeemFrame);
+                            }
+                            return;
                         }
                         
-                        try {
-                            // Probar múltiples enfoques de detección
-                            const detectionMethods = [
-                                { inversionAttempts: "dontInvert" },
-                                { inversionAttempts: "onlyInvert" },
-                                { inversionAttempts: "attemptBoth" }
-                            ];
-                            
-                            for (let method of detectionMethods) {
-                                const code = jsQR(imageData.data, imageData.width, imageData.height, method);
-                                
-                                if (code && code.data) {
-                                    console.log('📱 QR DETECTADO para canje:', code.data);
+                        // REDUCIR LOGS: Solo cada 60 frames (2 segundos aprox)
+                        if (Math.random() < 0.017) {
+                            console.log('🔍 Escaneando QR...', imageData.width, 'x', imageData.height);
+                        }
+                        
+                        // DETECCIÓN ROBUSTA: Probar múltiples configuraciones
+                        const detectionConfigs = [
+                            { inversionAttempts: "dontInvert" },
+                            { inversionAttempts: "onlyInvert" },
+                            { inversionAttempts: "attemptBoth" }
+                        ];
+                        
+                        for (let config of detectionConfigs) {
+                            try {
+                                // VALIDACIÓN ADICIONAL: Asegurar que jsQR reciba datos válidos
+                                if (imageData.data.length > 0 && imageData.width > 0 && imageData.height > 0) {
+                                    const code = jsQR(imageData.data, imageData.width, imageData.height, config);
                                     
-                                    // Verificar que sea formato válido antes de procesar
-                                    if (code.data.startsWith('USER:')) {
-                                        handleRedeemQRCode(code.data);
-                                        return; // Salir del bucle
-                                    } else {
-                                        console.log('⚠️ QR detectado pero formato inválido:', code.data);
+                                    if (code && code.data && typeof code.data === 'string') {
+                                        console.log('📱 QR DETECTADO para canje:', code.data);
+                                        
+                                        // Verificar que sea formato válido antes de procesar
+                                        if (code.data.startsWith('USER:')) {
+                                            handleRedeemQRCode(code.data);
+                                            return; // Salir completamente
+                                        } else {
+                                            console.log('⚠️ QR detectado pero formato inválido:', code.data);
+                                        }
                                     }
                                 }
+                            } catch (jsqrError) {
+                                // Error específico de jsQR - no mostrar tanto spam
+                                if (Math.random() < 0.01) { // Solo 1% de las veces
+                                    console.error('❌ Error jsQR específico:', jsqrError.message);
+                                }
                             }
-                        } catch (jsqrError) {
-                            console.error('❌ Error específico de jsQR:', jsqrError);
                         }
+                        
+                    } catch (imageDataError) {
+                        console.error('❌ Error obteniendo imageData:', imageDataError);
+                        
+                        // Intentar reducir el tamaño si hay problemas de memoria
+                        if (canvas.width > 640 || canvas.height > 480) {
+                            console.log('🔧 Intentando reducir resolución del canvas...');
+                            canvas.width = Math.min(canvas.width, 640);
+                            canvas.height = Math.min(canvas.height, 480);
+                        }
+                    }
+                } else {
+                    // Video no está listo - no mostrar tanto spam
+                    if (Math.random() < 0.001) { // Solo 0.1% de las veces
+                        console.log('⏳ Video no está listo para escaneo...');
                     }
                 }
             } catch (error) {
-                console.error('❌ Error en scanRedeemFrame:', error);
+                console.error('❌ Error general en scanRedeemFrame:', error);
+                
+                // Si hay un error crítico, reintentar después de una pausa
+                setTimeout(() => {
+                    if (redeemScannerActive) {
+                        requestAnimationFrame(scanRedeemFrame);
+                    }
+                }, 1000);
+                return;
             }
             
-            // Continuar escaneando
+            // Continuar escaneando solo si está activo
             if (redeemScannerActive) {
                 requestAnimationFrame(scanRedeemFrame);
             }
