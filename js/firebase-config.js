@@ -17,7 +17,6 @@ let db;
 let storage;
 
 // Función para inicializar Firebase
-// 🔥 REEMPLAZA la función initializeFirebase() en tu firebase-config.js
 
 function initializeFirebase() {
     return new Promise((resolve, reject) => {
@@ -26,6 +25,12 @@ function initializeFirebase() {
             if (typeof firebase === 'undefined') {
                 throw new Error('Firebase SDK no está cargado');
             }
+
+            console.log('🔍 Verificando servicios de Firebase disponibles...');
+            console.log('  - firebase.apps:', firebase.apps ? firebase.apps.length : 'undefined');
+            console.log('  - firebase.auth:', typeof firebase.auth);
+            console.log('  - firebase.firestore:', typeof firebase.firestore);
+            console.log('  - firebase.storage:', typeof firebase.storage);
 
             // Verificar si ya está inicializado
             if (firebase.apps.length > 0) {
@@ -36,28 +41,50 @@ function initializeFirebase() {
                 app = firebase.initializeApp(firebaseConfig);
             }
 
-            // Inicializar servicios con verificación
-            auth = firebase.auth();
-            db = firebase.firestore();
-            
-            // 🔥 CORREGIDO: Verificar si storage está disponible
-            if (firebase.storage) {
-                storage = firebase.storage();
-                console.log('✅ Firebase Storage inicializado');
-            } else {
-                console.warn('⚠️ Firebase Storage no está disponible');
+            // Inicializar servicios con verificación robusta
+            try {
+                auth = firebase.auth();
+                console.log('✅ Firebase Auth inicializado');
+            } catch (authError) {
+                console.error('❌ Error inicializando Auth:', authError);
+                throw new Error('No se pudo inicializar Firebase Auth');
+            }
+
+            try {
+                db = firebase.firestore();
+                console.log('✅ Firebase Firestore inicializado');
+            } catch (dbError) {
+                console.error('❌ Error inicializando Firestore:', dbError);
+                throw new Error('No se pudo inicializar Firestore');
+            }
+
+            // 🔥 CORREGIDO: Inicialización más robusta de Storage
+            try {
+                // Verificar múltiples formas de acceder a Storage
+                if (typeof firebase.storage === 'function') {
+                    storage = firebase.storage();
+                    console.log('✅ Firebase Storage inicializado (método 1)');
+                } else if (firebase.storage && typeof firebase.storage === 'object') {
+                    storage = firebase.storage;
+                    console.log('✅ Firebase Storage inicializado (método 2)');
+                } else if (app && app.storage) {
+                    storage = app.storage();
+                    console.log('✅ Firebase Storage inicializado (método 3)');
+                } else {
+                    console.warn('⚠️ Firebase Storage no está disponible - funcionalidad limitada');
+                    storage = null;
+                }
+            } catch (storageError) {
+                console.warn('⚠️ Error inicializando Storage:', storageError);
+                console.warn('⚠️ Continuando sin Storage - funcionalidad limitada');
                 storage = null;
             }
 
-            console.log('✅ Servicios de Firebase inicializados');
+            console.log('✅ Servicios de Firebase inicializados correctamente');
 
-            // Configurar Firestore
+            // Configurar servicios
             configureFirestore();
-
-            // Configurar Auth
             configureAuth();
-
-            // Exportar variables globales
             exportGlobalVariables();
 
             resolve({
@@ -366,6 +393,7 @@ const StorageHelper = {
 };
 
 // Utility functions for Firebase operations
+
 const FirebaseUtils = {
     // Get current timestamp
     timestamp() {
@@ -399,9 +427,16 @@ const FirebaseUtils = {
         return await db.runTransaction(callback);
     },
     
-    // Verify Firebase is ready
+    // 🔥 CORREGIDO: Verify Firebase is ready (Storage es opcional)
     isReady() {
-        return !!(auth && db && storage);
+        const ready = !!(auth && db);
+        console.log('🔍 Firebase ready check:', {
+            auth: !!auth,
+            db: !!db,
+            storage: !!storage,
+            overall: ready
+        });
+        return ready;
     },
     
     // Get current user
