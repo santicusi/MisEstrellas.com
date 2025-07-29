@@ -932,16 +932,18 @@ async function cargarClientes(businessId) {
 }
 
 // Obtener historial de transacciones de un cliente específico
+// Obtener historial de transacciones de un cliente específico
 async function getClientTransactionHistory(clientId, businessId) {
     console.log('📋 Cargando historial de cliente:', clientId, 'negocio:', businessId);
     
     try {
         if (!db) throw new Error('Firestore no está inicializado');
         
+        // CORREGIDO: Sin orderBy para evitar error de índice
         const transactionsSnapshot = await db.collection('transactions')
             .where('userId', '==', clientId)
             .where('businessId', '==', businessId)
-            .limit(20)
+            .limit(50)
             .get();
         
         const transactions = [];
@@ -957,10 +959,10 @@ async function getClientTransactionHistory(clientId, businessId) {
             });
         });
         
-        // Ordenar por fecha (más reciente primero)
+        // Ordenar manualmente por fecha (más reciente primero)
         transactions.sort((a, b) => b.date - a.date);
         
-        return transactions;
+        return transactions.slice(0, 20); // Limitar a 20 más recientes
         
     } catch (error) {
         console.error('❌ Error cargando historial del cliente:', error);

@@ -1894,26 +1894,28 @@
             try {
                 console.log('📋 Cargando historial para cliente:', clientId);
                 
-                // Intentar cargar desde Firebase primero
                 let transactions = [];
                 
                 if (window.db && currentUser) {
+                    // SOLUCIÓN: Hacer consulta sin orderBy y ordenar después
                     const transactionsSnapshot = await db.collection('transactions')
                         .where('userId', '==', clientId)
                         .where('businessId', '==', currentUser.uid)
-                        .orderBy('createdAt', 'desc')
-                        .limit(20)
+                        .limit(50) // Aumentar límite para compensar
                         .get();
                     
+                    // Ordenar manualmente después de obtener los datos
                     transactions = transactionsSnapshot.docs.map(doc => {
                         const data = doc.data();
                         return {
                             type: data.type,
                             points: data.points,
                             description: data.description || (data.type === 'earned' ? 'Puntos ganados' : 'Puntos canjeados'),
-                            date: data.createdAt?.toDate() || new Date()
+                            date: data.createdAt?.toDate() || new Date(),
+                            metadata: data.metadata || {}
                         };
-                    });
+                    }).sort((a, b) => b.date - a.date) // Ordenar por fecha descendente
+                    .slice(0, 20); // Limitar a 20
                 }
                 
                 // Si no hay transacciones de Firebase, usar datos de prueba más realistas
@@ -1943,12 +1945,6 @@
                             points: 3,
                             description: 'Visita al negocio',
                             date: new Date(now - 10 * 24 * 60 * 60 * 1000)
-                        },
-                        {
-                            type: 'earned',
-                            points: 6,
-                            description: 'Compra especial',
-                            date: new Date(now - 15 * 24 * 60 * 60 * 1000)
                         }
                     ];
                 }
