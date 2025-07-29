@@ -529,7 +529,8 @@
                 return seed / 233280;
             }
             
-            ctx.fillStyle = '#FF8C42';
+            // CAMBIO IMPORTANTE: Usar NEGRO en lugar de naranja para mejor detección
+            ctx.fillStyle = '#000000'; // Negro en lugar de '#FF8C42'
             
             // Dibujar patrón QR
             for (let y = 0; y < modules; y++) {
@@ -548,7 +549,12 @@
                 }
             }
             
-            console.log('✅ QR dibujado en canvas');
+            // Agregar borde naranja decorativo sin afectar la detección
+            ctx.strokeStyle = '#FF8C42';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(2, 2, size - 4, size - 4);
+            
+            console.log('✅ QR dibujado en canvas con contraste mejorado');
         }
 
         async function refreshQR() {
