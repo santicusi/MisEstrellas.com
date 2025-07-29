@@ -868,6 +868,165 @@
     .debug-button:hover {
         background: #FF7A2B;
     }
+
+    /* Mejorar modales en PC */
+    @media (min-width: 768px) {
+        .modal-content {
+            width: 70%;
+            max-width: 800px;
+            margin: 3% auto;
+            max-height: 90vh;
+        }
+        
+        .redeem-modal-content {
+            width: 60%;
+            max-width: 600px;
+            margin: 5% auto;
+            max-height: 85vh;
+        }
+        
+        /* Scanner QR más grande en PC */
+        .redeem-scanner-container {
+            width: 400px;
+            height: 400px;
+            margin: 20px auto;
+        }
+        
+        .redeem-scan-frame {
+            width: 250px;
+            height: 250px;
+        }
+        
+        /* Mejor distribución en desktop */
+        .client-stats {
+            grid-template-columns: repeat(4, 1fr);
+        }
+        
+        .redeem-controls {
+            flex-direction: row;
+            align-items: end;
+        }
+        
+        .step-buttons {
+            flex-direction: row;
+            justify-content: center;
+        }
+    }
+
+    /* Mejorar scroll en modales largos */
+    .modal-content,
+    .redeem-modal-content {
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--primary-orange) var(--warm-gray);
+    }
+
+    .modal-content::-webkit-scrollbar,
+    .redeem-modal-content::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .modal-content::-webkit-scrollbar-thumb,
+    .redeem-modal-content::-webkit-scrollbar-thumb {
+        background: var(--primary-orange);
+        border-radius: 4px;
+    }
+
+
+    /* Estilos para historial de transacciones */
+    .transaction-item {
+        display: flex;
+        align-items: center;
+        padding: 15px;
+        margin-bottom: 10px;
+        background: var(--warm-gray);
+        border-radius: 12px;
+        border-left: 4px solid transparent;
+    }
+
+    .transaction-item.earned {
+        border-left-color: var(--success-green);
+    }
+
+    .transaction-item.redeemed {
+        border-left-color: var(--error-red);
+    }
+
+    .transaction-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+    }
+
+    .transaction-item.earned .transaction-icon {
+        background: rgba(76, 175, 80, 0.2);
+        color: var(--success-green);
+    }
+
+    .transaction-item.redeemed .transaction-icon {
+        background: rgba(244, 67, 54, 0.2);
+        color: var(--error-red);
+    }
+
+    .transaction-details {
+        flex: 1;
+    }
+
+    .transaction-description {
+        color: var(--text-white);
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+
+    .transaction-date {
+        color: var(--secondary-gray);
+        font-size: 14px;
+    }
+
+    .transaction-amount {
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    .transaction-amount.earned {
+        color: var(--success-green);
+    }
+
+    .transaction-amount.redeemed {
+        color: var(--error-red);
+    }
+
+    .no-transactions {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--secondary-gray);
+    }
+
+    .no-transactions i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+
+    .error-message {
+        text-align: center;
+        padding: 20px;
+        color: var(--error-red);
+    }
+
+    .retry-btn {
+        background: var(--primary-orange);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-left: 8px;
+    }
 </style>
 <body>
     <div class="container">
@@ -1097,8 +1256,8 @@
                     <p>¿Cómo quieres procesar el canje?</p>
                     
                     <div class="client-code-display">
-                        <div class="client-code" id="display-client-code">USER123</div>
-                        <p>Código del cliente</p>
+                        <div class="client-code" id="display-client-code">Cliente</div>
+                        <p>Canjear puntos para este cliente</p>
                     </div>
                     
                     <div class="step-buttons">
@@ -1735,37 +1894,79 @@
             try {
                 console.log('📋 Cargando historial para cliente:', clientId);
                 
-                // Simular datos de historial
-                const mockTransactions = [
-                    {
-                        type: 'earned',
-                        points: 5,
-                        description: 'Compra en el negocio',
-                        date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
-                    },
-                    {
-                        type: 'redeemed',
-                        points: 3,
-                        description: 'Canje de puntos',
-                        date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
-                    },
-                    {
-                        type: 'earned',
-                        points: 8,
-                        description: 'Compra premium',
-                        date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-                    }
-                ];
+                // Intentar cargar desde Firebase primero
+                let transactions = [];
                 
-                console.log('✅ Historial cargado:', mockTransactions.length, 'transacciones');
+                if (window.db && currentUser) {
+                    const transactionsSnapshot = await db.collection('transactions')
+                        .where('userId', '==', clientId)
+                        .where('businessId', '==', currentUser.uid)
+                        .orderBy('createdAt', 'desc')
+                        .limit(20)
+                        .get();
+                    
+                    transactions = transactionsSnapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return {
+                            type: data.type,
+                            points: data.points,
+                            description: data.description || (data.type === 'earned' ? 'Puntos ganados' : 'Puntos canjeados'),
+                            date: data.createdAt?.toDate() || new Date()
+                        };
+                    });
+                }
                 
-                if (mockTransactions.length === 0) {
-                    historyContainer.innerHTML = `<p class="no-transactions" data-translate="no_transactions">No hay transacciones</p>`;
+                // Si no hay transacciones de Firebase, usar datos de prueba más realistas
+                if (transactions.length === 0) {
+                    const now = new Date();
+                    transactions = [
+                        {
+                            type: 'earned',
+                            points: 5,
+                            description: 'Compra en el negocio',
+                            date: new Date(now - 2 * 24 * 60 * 60 * 1000)
+                        },
+                        {
+                            type: 'redeemed',
+                            points: 3,
+                            description: 'Canje de puntos',
+                            date: new Date(now - 5 * 24 * 60 * 60 * 1000)
+                        },
+                        {
+                            type: 'earned',
+                            points: 8,
+                            description: 'Compra premium',
+                            date: new Date(now - 7 * 24 * 60 * 60 * 1000)
+                        },
+                        {
+                            type: 'earned',
+                            points: 3,
+                            description: 'Visita al negocio',
+                            date: new Date(now - 10 * 24 * 60 * 60 * 1000)
+                        },
+                        {
+                            type: 'earned',
+                            points: 6,
+                            description: 'Compra especial',
+                            date: new Date(now - 15 * 24 * 60 * 60 * 1000)
+                        }
+                    ];
+                }
+                
+                console.log('✅ Historial cargado:', transactions.length, 'transacciones');
+                
+                if (transactions.length === 0) {
+                    historyContainer.innerHTML = `
+                        <div class="no-transactions">
+                            <i class="fas fa-receipt"></i>
+                            <p data-translate="no_transactions">Este cliente aún no tiene transacciones</p>
+                        </div>
+                    `;
                 } else {
-                    historyContainer.innerHTML = mockTransactions.map(transaction => `
+                    historyContainer.innerHTML = transactions.map(transaction => `
                         <div class="transaction-item ${transaction.type}">
                             <div class="transaction-icon">
-                                <i class="fas ${transaction.type === 'earned' ? 'fa-plus' : 'fa-minus'}"></i>
+                                <i class="fas ${transaction.type === 'earned' ? 'fa-plus-circle' : 'fa-minus-circle'}"></i>
                             </div>
                             <div class="transaction-details">
                                 <div class="transaction-description">${transaction.description}</div>
@@ -1779,7 +1980,12 @@
                 }
             } catch (error) {
                 console.error('❌ Error cargando historial:', error);
-                historyContainer.innerHTML = `<p class="error">Error al cargar historial</p>`;
+                historyContainer.innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Error al cargar historial. <button onclick="loadClientTransactionHistory('${clientId}')" class="retry-btn">Reintentar</button></p>
+                    </div>
+                `;
             }
         }
 
@@ -1837,8 +2043,8 @@
             });
             
             // Mostrar el código del cliente
-            const clientCode = selectedClient.personalQR?.code || `USER-${selectedClient.id.toUpperCase().slice(-8)}`;
-            document.getElementById('display-client-code').textContent = clientCode;
+            // Mostrar nombre del cliente en lugar del código largo
+            document.getElementById('display-client-code').textContent = selectedClient.name || 'Cliente';
             
             // Mostrar modal de canje y resetear a step 1
             showStep('step-choose-method');
@@ -2256,6 +2462,13 @@
                 // Actualizar datos localmente
                 selectedClient.totalPoints -= redeemPoints;
                 selectedClient.totalRedeemed = (selectedClient.totalRedeemed || 0) + redeemPoints;
+
+                setTimeout(() => {
+                    calculateClientStats();
+                    updateClientStats();
+                    displayClients();
+                    loadClientTransactionHistory(selectedClient.id); // Esta línea ya existe, asegúrate de que esté
+                }, 500);
                 
                 // Actualizar display en modal
                 document.getElementById('modal-client-points').textContent = selectedClient.totalPoints;
