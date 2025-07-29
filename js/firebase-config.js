@@ -137,19 +137,65 @@ function configureFirestore() {
 // Configurar Auth
 function configureAuth() {
     try {
-        // Configurar persistencia de autenticación
+        if (!auth) {
+            console.warn('⚠️ Auth no está disponible');
+            return;
+        }
+        
+        // Configurar persistencia LOCAL (permanece hasta cerrar sesión manualmente)
         auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
             .then(() => {
-                console.log('✅ Persistencia de Auth configurada');
+                console.log('✅ Persistencia LOCAL configurada - sesión permanece hasta logout manual');
             })
             .catch((err) => {
                 console.warn('⚠️ Error configurando persistencia de Auth:', err);
             });
+            
+        // Listener de estado de autenticación mejorado
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                console.log('👤 Usuario autenticado:', user.uid);
+                
+                // Verificar si es cliente y está en página correcta
+                const currentPath = window.location.pathname;
+                const isLoginPage = currentPath.includes('index.html') || currentPath === '/';
+                
+                if (isLoginPage && !window.location.search.includes('emailSignIn')) {
+                    try {
+                        // Verificar tipo de usuario
+                        const userDoc = await db.collection('users').doc(user.uid).get();
+                        if (userDoc.exists) {
+                            const userData = userDoc.data();
+                            if (userData.userType === 'client') {
+                                console.log('🔄 Cliente autenticado, redirigiendo a dashboard...');
+                                window.location.href = 'cliente/dashboard.html';
+                            } else if (userData.userType === 'admin') {
+                                console.log('🔄 Admin autenticado, redirigiendo a dashboard...');
+                                window.location.href = 'admin/dashboard.html';
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error verificando tipo de usuario:', error);
+                    }
+                }
+            } else {
+                console.log('👤 Usuario no autenticado');
+                
+                // Solo redirigir si está en páginas protegidas
+                const currentPath = window.location.pathname;
+                const isProtectedPage = currentPath.includes('/admin/') || currentPath.includes('/cliente/');
+                
+                if (isProtectedPage) {
+                    console.log('🔄 Redirigiendo a login desde página protegida');
+                    window.location.href = '/index.html';
+                }
+            }
+        });
+        
     } catch (error) {
         console.warn('⚠️ Error configurando Auth:', error);
     }
 }
-
 // Exportar variables globales
 function exportGlobalVariables() {
     // Exportar configuración
