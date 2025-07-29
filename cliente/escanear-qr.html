@@ -691,22 +691,10 @@
 
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
-    
-    <script>
-        // ==========================================
-        // CONFIGURACIÓN DE FIREBASE
-        // ==========================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyAdRYp6pQRVoPnhOEnz3PrYPz8B2jswo3Y",
-            authDomain: "miestrellas-d677e.firebaseapp.com",
-            projectId: "miestrellas-d677e",
-            storageBucket: "miestrellas-d677e.firebasestorage.app",
-            messagingSenderId: "942296067880",
-            appId: "1:942296067880:web:b5c9e6a7c03d06aa07aa1d"
-        };
+    <script src="../js/firebase-config.js"></script>
 
+    <script>
         // Variables globales
-        let app, auth, db, storage;
         let videoElement, canvasElement, canvasContext;
         let currentStream = null;
         let currentFacingMode = 'environment';
@@ -714,122 +702,70 @@
         let animationId;
         let currentUser = null;
         let qrProcessingData = null;
-        let jsQR = null; // Variable para la librería
-
-        // ==========================================
-        // CARGA DE LIBRERÍA jsQR
-        // ==========================================
-        async function loadJsQR() {
-            return new Promise((resolve, reject) => {
-                console.log('📚 Cargando librería jsQR...');
-                
-                const script = document.createElement('script');
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
-                script.onload = () => {
-                    if (typeof window.jsQR !== 'undefined') {
-                        jsQR = window.jsQR;
-                        console.log('✅ jsQR cargado correctamente');
-                        resolve();
-                    } else {
-                        reject(new Error('jsQR no se cargó correctamente'));
-                    }
-                };
-                script.onerror = () => {
-                    reject(new Error('Error cargando jsQR'));
-                };
-                document.head.appendChild(script);
-            });
-        }
 
         // ==========================================
         // INICIALIZACIÓN
         // ==========================================
-        document.addEventListener('DOMContentLoaded', async function() {
-            console.log('🚀 Inicializando aplicación...');
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Inicializando aplicación de lectura QR...');
+            
+            updateStatus('loading', 'fas fa-spinner fa-spin');
+            
+            // Esperar a que Firebase esté listo
+            window.addEventListener('firebaseReady', initializeApp);
+            
+            // Si firebase-config ya está listo
+            if (window.auth && window.db) {
+                initializeApp();
+            }
+        });
+
+        async function initializeApp() {
+            console.log('🔥 Firebase listo, inicializando aplicación...');
             
             try {
-                updateStatus('loading', 'fas fa-spinner fa-spin');
-                
-                // Inicializar Firebase
-                await initializeFirebase();
-                console.log('✅ Firebase inicializado');
-                
-                // Verificar autenticación (sin redirigir)
+                // Verificar autenticación
                 await checkAuthentication();
                 console.log('✅ Autenticación verificada');
                 
                 // Inicializar escáner
                 await initializeScanner();
-                console.log('✅ Escáner inicializado');
-                
-                console.log('✅ Aplicación inicializada correctamente');
+                console.log('✅ Escáner inicializado correctamente');
                 
             } catch (error) {
                 console.error('❌ Error en inicialización:', error);
                 showError('Error: ' + error.message);
                 updateStatus('error', 'fas fa-exclamation-triangle');
             }
-        });
-
-        async function initializeFirebase() {
-            console.log('🔥 Inicializando Firebase...');
-            
-            try {
-                // Verificar si Firebase está disponible
-                if (typeof firebase === 'undefined') {
-                    throw new Error('Firebase SDK no está cargado');
-                }
-
-                // Inicializar Firebase
-                if (firebase.apps.length === 0) {
-                    app = firebase.initializeApp(firebaseConfig);
-                } else {
-                    app = firebase.app();
-                }
-
-                // Inicializar servicios
-                auth = firebase.auth();
-                db = firebase.firestore();
-                storage = firebase.storage();
-
-                // Configurar persistencia
-                await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-                
-                console.log('✅ Firebase inicializado correctamente');
-                
-            } catch (error) {
-                console.error('❌ Error inicializando Firebase:', error);
-                throw error;
-            }
         }
 
         async function checkAuthentication() {
             console.log('🔐 Verificando autenticación...');
             
-            return new Promise((resolve) => {
-                const unsubscribe = auth.onAuthStateChanged((user) => {
-                    unsubscribe();
+            try {
+                // Usar la función del firebase-config
+                currentUser = await window.FirebaseUtils.waitForAuth();
+                
+                if (!currentUser) {
+                    console.log('❌ Usuario no autenticado - usando modo debug');
                     
-                    if (user) {
-                        currentUser = user;
-                        console.log('✅ Usuario autenticado:', user.uid);
-                        resolve(user);
-                    } else {
-                        console.log('❌ Usuario no autenticado - usando modo debug');
-                        
-                        // MODO DEBUG: Crear usuario falso para testing
-                        currentUser = { 
-                            uid: 'debug-user-' + Date.now(),
-                            displayName: 'Usuario Debug',
-                            email: 'debug@test.com',
-                            phoneNumber: '+57300123456'
-                        };
-                        
-                        console.log('🧪 Usuario debug creado:', currentUser.uid);
-                        resolve(currentUser);
-                    }
-                });
-            });
+                    // MODO DEBUG: Crear usuario falso para testing
+                    currentUser = { 
+                        uid: 'debug-user-' + Date.now(),
+                        displayName: 'Usuario Debug',
+                        email: 'debug@test.com',
+                        phoneNumber: '+57300123456'
+                    };
+                    
+                    console.log('🧪 Usuario debug creado:', currentUser.uid);
+                } else {
+                    console.log('✅ Usuario autenticado:', currentUser.uid);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error en autenticación:', error);
+                throw error;
+            }
         }
 
         // ==========================================
@@ -917,10 +853,13 @@
         }
 
         function startScanning() {
-            if (!isScanning && typeof jsQR !== 'undefined') {
+            if (!isScanning && typeof window.jsQR !== 'undefined') {
                 console.log('👁️ Iniciando escaneo...');
                 isScanning = true;
                 scanFrame();
+            } else if (typeof window.jsQR === 'undefined') {
+                console.warn('⚠️ jsQR no está disponible, reintentando...');
+                setTimeout(startScanning, 1000);
             }
         }
 
@@ -933,7 +872,7 @@
         }
 
         function scanFrame() {
-            if (!isScanning || typeof jsQR === 'undefined') return;
+            if (!isScanning || typeof window.jsQR === 'undefined') return;
 
             try {
                 if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
@@ -944,7 +883,7 @@
                     const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
                     
                     // Buscar código QR usando jsQR
-                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
                         inversionAttempts: "dontInvert"
                     });
                     
@@ -970,64 +909,8 @@
             updateStatus('processing', 'fas fa-spinner fa-spin');
             
             try {
-                // Validar formato básico
-                if (!qrData || typeof qrData !== 'string') {
-                    throw new Error('Código QR inválido');
-                }
-
-                // Parsear el código QR
-                const parts = qrData.split(':');
-                if (parts.length !== 4 || parts[0] !== 'POINTS') {
-                    throw new Error('Formato de QR no válido para puntos');
-                }
-                
-                const [type, businessId, qrId, points] = parts;
-                const pointsToAdd = parseInt(points);
-                
-                if (isNaN(pointsToAdd) || pointsToAdd <= 0) {
-                    throw new Error('Cantidad de puntos inválida');
-                }
-
-                // Verificar QR en Firebase
-                const qrDoc = await db.collection('qr_codes').doc(qrId).get();
-                
-                if (!qrDoc.exists) {
-                    throw new Error('Código QR no encontrado');
-                }
-                
-                const qrCodeData = qrDoc.data();
-
-                if (qrCodeData.used) {
-                    throw new Error('Este código ya fue utilizado');
-                }
-
-                // Verificaciones de seguridad
-                if (qrCodeData.expiresAt && new Date() > qrCodeData.expiresAt.toDate()) {
-                    throw new Error('Este código ha expirado');
-                }
-                
-                if (qrCodeData.businessId !== businessId) {
-                    throw new Error('Código QR corrupto');
-                }
-
-                // Obtener información del negocio
-                const businessDoc = await db.collection('businesses').doc(businessId).get();
-                if (!businessDoc.exists) {
-                    throw new Error('Negocio no encontrado');
-                }
-                
-                const businessData = businessDoc.data();
-                
-                const result = {
-                    qrId: qrId,
-                    businessId: businessId,
-                    businessName: businessData.name || 'Negocio',
-                    businessAddress: businessData.address || 'Dirección no disponible',
-                    businessImage: businessData.image || null,
-                    points: pointsToAdd,
-                    qrData: qrCodeData,
-                    businessData: businessData
-                };
+                // Usar la función del firebase-config
+                const result = await window.procesarQREscaneado(qrData, currentUser.uid);
                 
                 console.log('✅ QR procesado correctamente:', result);
                 
@@ -1063,105 +946,13 @@
                 confirmBtn.textContent = 'Procesando...';
                 confirmBtn.disabled = true;
                 
-                // Procesar ganancia de puntos usando transacción
-                const result = await db.runTransaction(async (transaction) => {
-                    // 1. Verificar QR nuevamente
-                    const qrRef = db.collection('qr_codes').doc(qrProcessingData.qrId);
-                    const qrDoc = await transaction.get(qrRef);
-                    
-                    if (!qrDoc.exists) {
-                        throw new Error('Código QR no encontrado');
-                    }
-                    
-                    const qrData = qrDoc.data();
-                    
-                    if (qrData.used) {
-                        throw new Error('Este código ya fue utilizado');
-                    }
-                    
-                    if (qrData.expiresAt && new Date() > qrData.expiresAt.toDate()) {
-                        throw new Error('Este código ha expirado');
-                    }
-                    
-                    // 2. Obtener datos del usuario
-                    const userRef = db.collection('users').doc(currentUser.uid);
-                    const userDoc = await transaction.get(userRef);
-                    
-                    let userData = {};
-                    if (userDoc.exists) {
-                        userData = userDoc.data();
-                    } else {
-                        // Crear usuario si no existe
-                        userData = {
-                            name: currentUser.displayName || 'Usuario',
-                            email: currentUser.email,
-                            phoneNumber: currentUser.phoneNumber,
-                            totalPoints: 0,
-                            totalEarned: 0,
-                            totalVisits: 0,
-                            joinedBusinesses: [],
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        };
-                        transaction.set(userRef, userData);
-                    }
-                    
-                    // 3. Crear transacción
-                    const transactionRef = db.collection('transactions').doc();
-                    const transactionData = {
-                        userId: currentUser.uid,
-                        businessId: qrProcessingData.businessId,
-                        qrCodeId: qrProcessingData.qrId,
-                        type: 'earned',
-                        points: qrProcessingData.points,
-                        description: `Puntos ganados en ${qrProcessingData.businessName}`,
-                        status: 'completed',
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        metadata: {
-                            qrDisplayCode: qrData.displayCode,
-                            businessName: qrProcessingData.businessName,
-                            clientName: userData.name || currentUser.displayName || 'Usuario',
-                            clientPhone: userData.phoneNumber || currentUser.phoneNumber
-                        }
-                    };
-                    
-                    transaction.set(transactionRef, transactionData);
-                    
-                    // 4. Marcar QR como usado
-                    transaction.update(qrRef, {
-                        used: true,
-                        usedBy: currentUser.uid,
-                        usedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        clientData: {
-                            name: userData.name || currentUser.displayName || 'Usuario',
-                            phone: userData.phoneNumber || currentUser.phoneNumber,
-                            email: userData.email || currentUser.email
-                        }
-                    });
-                    
-                    // 5. Actualizar estadísticas del usuario
-                    transaction.update(userRef, {
-                        totalPoints: firebase.firestore.FieldValue.increment(qrProcessingData.points),
-                        totalEarned: firebase.firestore.FieldValue.increment(qrProcessingData.points),
-                        totalVisits: firebase.firestore.FieldValue.increment(1),
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        joinedBusinesses: firebase.firestore.FieldValue.arrayUnion(qrProcessingData.businessId)
-                    });
-                    
-                    // 6. Actualizar estadísticas del negocio
-                    const businessRef = db.collection('businesses').doc(qrProcessingData.businessId);
-                    transaction.update(businessRef, {
-                        totalPointsGiven: firebase.firestore.FieldValue.increment(qrProcessingData.points),
-                        totalClients: firebase.firestore.FieldValue.increment(1),
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    
-                    return {
-                        success: true,
-                        transactionId: transactionRef.id,
-                        points: qrProcessingData.points,
-                        businessName: qrProcessingData.businessName
-                    };
-                });
+                // Usar la función del firebase-config para confirmar puntos
+                const result = await window.confirmarGananciaPuntos(
+                    qrProcessingData.qrId, 
+                    qrProcessingData.businessId, 
+                    currentUser.uid, 
+                    qrProcessingData.points
+                );
                 
                 console.log('🎉 Puntos confirmados:', result);
                 
@@ -1347,7 +1138,7 @@
         document.addEventListener('visibilitychange', function() {
             if (document.hidden) {
                 stopScanning();
-            } else if (currentStream && !isScanning && jsQR) {
+            } else if (currentStream && !isScanning && window.jsQR) {
                 startScanning();
             }
         });
@@ -1381,14 +1172,14 @@
         window.debugInfo = function() {
             const info = {
                 firebase: typeof firebase !== 'undefined',
-                auth: !!auth,
-                db: !!db,
+                auth: !!window.auth,
+                db: !!window.db,
                 currentUser: !!currentUser,
                 video: !!videoElement,
                 canvas: !!canvasElement,
                 stream: !!currentStream,
                 isScanning: isScanning,
-                jsQRLoaded: !!jsQR,
+                jsQRLoaded: !!window.jsQR,
                 statusIcon: !!document.querySelector('.status-icon i'),
                 statusText: !!document.getElementById('status-text'),
                 errorModal: !!document.getElementById('error-modal')
