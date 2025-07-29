@@ -10,8 +10,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
 
     <style>
         :root {
@@ -690,6 +688,7 @@
     </div>
 
     <!-- Scripts -->
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     <script src="../js/firebase-config.js"></script>
 
@@ -853,7 +852,7 @@
         }
 
         function startScanning() {
-            if (!isScanning && typeof window.jsQR !== 'undefined') {
+            if (!isScanning && typeof jsQR !== 'undefined') {
                 console.log('👁️ Iniciando escaneo...');
                 isScanning = true;
                 scanFrame();
@@ -872,7 +871,7 @@
         }
 
         function scanFrame() {
-            if (!isScanning || typeof window.jsQR === 'undefined') return;
+            if (!isScanning || typeof jsQR === 'undefined') return;
 
             try {
                 if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
@@ -883,7 +882,7 @@
                     const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
                     
                     // Buscar código QR usando jsQR
-                    const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
                         inversionAttempts: "dontInvert"
                     });
                     
@@ -978,6 +977,12 @@
         // FUNCIONES DE UI
         // ==========================================
         function updateStatus(status, iconClass) {
+
+            if (!document.querySelector('.status-icon i') || !document.getElementById('status-text')) {
+                setTimeout(() => updateStatus(status, iconClass), 100);
+                return;
+            }
+            
             const statusIcon = document.querySelector('.status-icon i');
             const statusText = document.getElementById('status-text');
             
