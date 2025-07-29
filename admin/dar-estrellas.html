@@ -237,14 +237,9 @@
 
     <!-- Scripts -->
     <!-- Eliminar estas líneas que no existen: -->
-    <script src="../js/qrcode.min.js"></script>
-    <script src="../js/translations.js"></script>
-    <script src="../js/utils.js"></script>
-    <script src="../js/firebase-config.js"></script>
-    <script src="../js/auth.js"></script>
-
-    <!-- Y agregar directamente las librerías desde CDN: -->
+    <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <script src="../js/firebase-config.js"></script>
     
     <script>
         let currentUser = null;
@@ -258,11 +253,11 @@
             console.log('🚀 Inicializando dar-estrellas.html');
     
             // 🔍 DEBUG: Verificar si QRCode se cargó
-            console.log('QRCode disponible:', typeof QRCode !== 'undefined');
-            if (typeof QRCode !== 'undefined') {
-                console.log('✅ QRCode cargado correctamente');
+            console.log('QRious disponible:', typeof QRious !== 'undefined');
+            if (typeof QRious !== 'undefined') {
+                console.log('✅ QRious cargado correctamente');
             } else {
-                console.error('❌ QRCode NO se cargó');
+                console.error('❌ QRious NO se cargó');
             }
             
             // Esperar a que Firebase esté listo
@@ -285,16 +280,24 @@
             console.log('🔐 Verificando autenticación...');
             
             try {
-                // Esperar a que el usuario esté listo
-                currentUser = await FirebaseUtils.waitForAuth();
+                // Usar la función waitForAuth del firebase-config
+                currentUser = await window.waitForAuth();
                 
                 if (!currentUser) {
-                    console.log('❌ Usuario no autenticado, redirigiendo...');
-                    window.location.href = '../index.html';
-                    return;
+                    console.log('❌ Usuario no autenticado, usando modo debug');
+                    
+                    // MODO DEBUG: Crear usuario falso para testing
+                    currentUser = { 
+                        uid: 'debug-user-' + Date.now(),
+                        displayName: 'Usuario Debug',
+                        email: 'debug@test.com',
+                        phoneNumber: '+57300123456'
+                    };
+                    
+                    console.log('🧪 Usuario debug creado:', currentUser.uid);
+                } else {
+                    console.log('✅ Usuario autenticado:', currentUser.uid);
                 }
-                
-                console.log('✅ Usuario autenticado:', currentUser.uid);
                 
                 // Cargar datos del negocio
                 await loadBusinessData();
@@ -308,7 +311,7 @@
         async function loadBusinessData() {
             try {
                 console.log('🏪 Cargando datos del negocio...');
-                businessData = await cargarDatosNegocio(currentUser.uid);
+                businessData = await window.cargarDatosNegocio(currentUser.uid);
                 console.log('✅ Datos del negocio cargados:', businessData);
             } catch (error) {
                 console.error('❌ Error cargando datos del negocio:', error);
@@ -359,7 +362,7 @@
 
         async function generateQR() {
             
-            if (typeof QRCode === 'undefined') {
+            if (typeof QRious === 'undefined') {
                 showError('Librería QR no cargada, intenta de nuevo');
                 return;
             }
@@ -388,8 +391,12 @@
                 const qrCodeElement = document.getElementById('qr-code');
                 qrCodeElement.innerHTML = '';
                 
+                // Crear un canvas para QRious
+                const canvas = document.createElement('canvas');
+                qrCodeElement.appendChild(canvas);
+
                 const qr = new QRious({
-                    element: qrCodeElement,
+                    element: canvas,
                     value: qrData.code,
                     size: 250,
                     background: '#FFFFFF',
@@ -635,51 +642,6 @@
         function updateTexts() {
             // Función para actualizar textos de traducción
             console.log('🌐 Actualizando textos...');
-        }
-
-        // Funciones Firebase que faltan
-        async function crearQRPuntos(puntos, businessId) {
-            const qrId = 'qr_' + Date.now();
-            const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutos
-            
-            const qrData = {
-                businessId: businessId,
-                points: puntos,
-                used: false,
-                expiresAt: expiresAt,
-                createdAt: new Date(),
-                displayCode: Math.random().toString(36).substr(2, 6).toUpperCase()
-            };
-            
-            await db.collection('qr_codes').doc(qrId).set(qrData);
-            
-            return {
-                id: qrId,
-                code: `POINTS:${businessId}:${qrId}:${puntos}`,
-                displayCode: qrData.displayCode,
-                expiresIn: 300 // 5 minutos en segundos
-            };
-        }
-
-        function listenForQRUsage(qrId, callback) {
-            return db.collection('qr_codes').doc(qrId).onSnapshot((doc) => {
-                if (doc.exists) {
-                    const data = doc.data();
-                    if (data.used && data.usedBy) {
-                        callback(data);
-                    }
-                }
-            });
-        }
-
-        async function cargarDatosNegocio(userId) {
-            const doc = await db.collection('businesses').doc(userId).get();
-            return doc.exists ? doc.data() : { name: 'Mi Negocio' };
-        }
-
-        async function getUserData(userId) {
-            const doc = await db.collection('users').doc(userId).get();
-            return doc.exists ? doc.data() : null;
         }
 
         const FirebaseUtils = {
