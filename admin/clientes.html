@@ -1832,14 +1832,23 @@
                 video.srcObject = redeemScannerStream;
                 redeemScannerActive = true;
                 
-                // Esperar a que el video cargue
+                // Esperar a que el video cargue completamente
                 await new Promise((resolve, reject) => {
                     video.addEventListener('loadedmetadata', () => {
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        console.log('📐 Video listo para canje:', video.videoWidth, 'x', video.videoHeight);
-                        scanRedeemFrame();
-                        resolve();
+                        console.log('📐 Video metadata cargada:', video.videoWidth, 'x', video.videoHeight);
+                        
+                        // Configurar canvas después de que el video esté listo
+                        setTimeout(() => {
+                            if (video.videoWidth > 0 && video.videoHeight > 0) {
+                                canvas.width = video.videoWidth;
+                                canvas.height = video.videoHeight;
+                                console.log('📐 Canvas configurado:', canvas.width, 'x', canvas.height);
+                                scanRedeemFrame();
+                                resolve();
+                            } else {
+                                reject(new Error('Video no tiene dimensiones válidas'));
+                            }
+                        }, 500); // Dar tiempo para que el video se estabilice
                     });
                     
                     video.addEventListener('error', reject);
@@ -1869,36 +1878,39 @@
             const context = canvas.getContext('2d', { willReadFrequently: true });
             
             try {
-                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
+                    // Asegurar que el canvas tenga las dimensiones correctas
+                    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                    }
+                    
                     context.drawImage(video, 0, 0, canvas.width, canvas.height);
                     
                     const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
                     
-                    // MEJORAR DETECCIÓN: Probar múltiples configuraciones
-                    const configs = [
-                        { inversionAttempts: "dontInvert" },
-                        { inversionAttempts: "onlyInvert" },
-                        { inversionAttempts: "attemptBoth" },
-                        { 
-                            inversionAttempts: "attemptBoth",
-                            scanRegion: {
-                                x: Math.floor(canvas.width * 0.1),
-                                y: Math.floor(canvas.height * 0.1),
-                                width: Math.floor(canvas.width * 0.8),
-                                height: Math.floor(canvas.height * 0.8)
-                            }
-                        }
-                    ];
-                    
-                    for (let config of configs) {
-                        const code = jsQR(imageData.data, imageData.width, imageData.height, config);
+                    // Verificar que los datos de imagen sean válidos
+                    if (imageData && imageData.data && imageData.width && imageData.height) {
+                        console.log('🔍 Analizando imagen:', imageData.width, 'x', imageData.height);
                         
-                        if (code && code.data) {
-                            console.log('📱 QR detectado para canje:', code.data);
-                            handleRedeemQRCode(code.data);
-                            return;
+                        try {
+                            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                inversionAttempts: "attemptBoth"
+                            });
+                            
+                            if (code && code.data) {
+                                console.log('📱 QR detectado para canje:', code.data);
+                                handleRedeemQRCode(code.data);
+                                return;
+                            }
+                        } catch (jsqrError) {
+                            console.error('❌ Error específico de jsQR:', jsqrError);
                         }
+                    } else {
+                        console.warn('⚠️ Datos de imagen inválidos');
                     }
+                } else {
+                    console.log('⏳ Video no está listo aún');
                 }
             } catch (error) {
                 console.error('❌ Error en scanRedeemFrame:', error);
@@ -1968,7 +1980,8 @@
             
             if (isValid) {
                 console.log('✅ Código manual válido');
-                processRedeemConfirmation();
+                console.log('📱 Iniciando proceso de confirmación con código manual...');
+                processRedeemConfirmation(); // Misma confirmación que con QR
             } else {
                 console.warn('❌ Código manual inválido');
                 showRedeemError('Código incorrecto. Verifica con el cliente.');
@@ -1996,17 +2009,40 @@
             document.getElementById('waiting-points').textContent = `${redeemPoints} puntos`;
             showStep('step-waiting');
             
-            // Simular proceso de confirmación (en realidad sería a través de Firebase)
+            // Simular proceso de confirmación con notificación al cliente
+            console.log('📱 Enviando solicitud de confirmación al cliente...');
+            
+            // Simular tiempo de respuesta del cliente (3-8 segundos)
+            const waitTime = 3000 + (Math.random() * 5000);
+            
             setTimeout(() => {
-                // Simular respuesta del cliente (90% acepta, 10% rechaza)
-                const clientAccepted = Math.random() > 0.1;
+                // Simular diferentes respuestas del cliente
+                const responses = [
+                    { accepted: true, message: 'Cliente confirmó el canje' },
+                    { accepted: true, message: 'Canje autorizado por el cliente' },
+                    { accepted: false, message: 'El cliente canceló el canje' },
+                    { accepted: false, message: 'Cliente rechazó la transacción' }
+                ];
                 
-                if (clientAccepted) {
+                // 85% de probabilidad de aceptación
+                const clientResponse = Math.random() < 0.85 ? responses[0] : responses[2];
+                
+                console.log('📱 Respuesta del cliente:', clientResponse.message);
+                
+                if (clientResponse.accepted) {
+                    console.log('✅ Cliente ACEPTÓ el canje');
                     processSuccessfulRedeem();
                 } else {
-                    showRedeemError('El cliente canceló el canje');
+                    console.log('❌ Cliente RECHAZÓ el canje');
+                    showRedeemError(clientResponse.message);
                 }
-            }, 3000 + Math.random() * 2000); // 3-5 segundos
+            }, waitTime);
+            
+            // Mostrar indicador de que se está esperando
+            const waitingStatus = document.querySelector('#step-waiting .loading-state p');
+            if (waitingStatus) {
+                waitingStatus.textContent = `Esperando confirmación del cliente para canjear ${redeemPoints} puntos...`;
+            }
         }
 
         async function processSuccessfulRedeem() {
