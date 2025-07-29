@@ -689,8 +689,56 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="../js/firebase-config.js"></script>
+
+    <script>
+        // Verificación y carga de respaldo para jsQR
+        (function() {
+            console.log('🔍 Verificando jsQR:', typeof jsQR);
+            
+            if (typeof jsQR === 'undefined') {
+                console.warn('⚠️ jsQR no cargó, intentando CDN alternativo...');
+                
+                // Array de CDNs alternativos
+                const cdnUrls = [
+                    'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
+                    'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js',
+                    'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js'
+                ];
+                
+                let currentCdn = 0;
+                
+                function tryLoadJsQR() {
+                    if (currentCdn >= cdnUrls.length) {
+                        console.error('❌ No se pudo cargar jsQR desde ningún CDN');
+                        return;
+                    }
+                    
+                    const script = document.createElement('script');
+                    script.src = cdnUrls[currentCdn];
+                    
+                    script.onload = function() {
+                        console.log('✅ jsQR cargado desde:', cdnUrls[currentCdn]);
+                        window.jsQRLoaded = true;
+                    };
+                    
+                    script.onerror = function() {
+                        console.warn('❌ Falló CDN:', cdnUrls[currentCdn]);
+                        currentCdn++;
+                        tryLoadJsQR();
+                    };
+                    
+                    document.head.appendChild(script);
+                }
+                
+                tryLoadJsQR();
+            } else {
+                console.log('✅ jsQR cargado correctamente');
+                window.jsQRLoaded = true;
+            }
+        })();
+    </script>
 
     <script>
         // Variables globales
@@ -705,19 +753,35 @@
         // Función para verificar si jsQR está cargado
         function waitForJsQR() {
             return new Promise((resolve) => {
+                // Si ya está cargado
+                if (typeof jsQR !== 'undefined') {
+                    resolve(true);
+                    return;
+                }
+                
                 let attempts = 0;
+                const maxAttempts = 200; // 20 segundos
+                
                 const checkInterval = setInterval(() => {
                     attempts++;
-                    console.log(`🔍 Intento ${attempts}: jsQR disponible?`, typeof jsQR !== 'undefined');
                     
                     if (typeof jsQR !== 'undefined') {
                         clearInterval(checkInterval);
-                        console.log('✅ jsQR encontrado!');
+                        console.log('✅ jsQR disponible después de', attempts * 100, 'ms');
                         resolve(true);
-                    } else if (attempts > 100) { // 10 segundos máximo
+                    } else if (attempts >= maxAttempts) {
                         clearInterval(checkInterval);
-                        console.error('❌ jsQR no disponible después de 10 segundos');
-                        resolve(false);
+                        console.error('❌ Timeout esperando jsQR');
+                        
+                        // Último intento: cargar directamente
+                        const script = document.createElement('script');
+                        script.src = 'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js';
+                        script.onload = () => {
+                            console.log('✅ jsQR cargado en último intento');
+                            setTimeout(() => resolve(typeof jsQR !== 'undefined'), 100);
+                        };
+                        script.onerror = () => resolve(false);
+                        document.head.appendChild(script);
                     }
                 }, 100);
             });
@@ -819,10 +883,13 @@
                 await startCamera();
                 
                 // Esperar a que jsQR esté disponible
+                console.log('⏳ Esperando jsQR...');
                 const jsQRLoaded = await waitForJsQR();
                 
                 if (!jsQRLoaded) {
-                    throw new Error('No se pudo cargar la librería jsQR. Recarga la página.');
+                    updateStatus('error', 'fas fa-exclamation-triangle');
+                    showError('Error: No se pudo cargar el lector de QR. Intenta recargar la página.');
+                    return;
                 }
                 
                 startScanning();
