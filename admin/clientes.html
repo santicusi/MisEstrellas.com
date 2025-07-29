@@ -10,6 +10,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="../css/components.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -1193,6 +1196,39 @@
     <script src="../js/auth.js"></script>
     
     <script>
+
+        // Verificación y carga de respaldo para jsQR
+        (function() {
+            console.log('🔍 Verificando jsQR:', typeof jsQR);
+            
+            if (typeof jsQR === 'undefined') {
+                console.warn('⚠️ jsQR no cargó, cargando desde CDN...');
+                
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
+                
+                script.onload = function() {
+                    console.log('✅ jsQR cargado desde CDN');
+                    window.jsQRLoaded = true;
+                };
+                
+                script.onerror = function() {
+                    console.error('❌ Error cargando jsQR');
+                    // Intentar CDN alternativo
+                    const script2 = document.createElement('script');
+                    script2.src = 'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js';
+                    script2.onload = () => console.log('✅ jsQR cargado desde CDN alternativo');
+                    document.head.appendChild(script2);
+                };
+                
+                document.head.appendChild(script);
+            } else {
+                console.log('✅ jsQR cargado correctamente');
+                window.jsQRLoaded = true;
+            }
+        })();
+
+
         let currentUser = null;
         let clients = [];
         let filteredClients = [];
@@ -1209,6 +1245,43 @@
             activeClients: 0,
             pointsGiven: 0
         };
+
+        // Función para verificar si jsQR está cargado
+        function waitForJsQR() {
+            return new Promise((resolve) => {
+                // Si ya está cargado
+                if (typeof jsQR !== 'undefined') {
+                    resolve(true);
+                    return;
+                }
+                
+                let attempts = 0;
+                const maxAttempts = 200; // 20 segundos
+                
+                const checkInterval = setInterval(() => {
+                    attempts++;
+                    
+                    if (typeof jsQR !== 'undefined') {
+                        clearInterval(checkInterval);
+                        console.log('✅ jsQR disponible después de', attempts * 100, 'ms');
+                        resolve(true);
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(checkInterval);
+                        console.error('❌ Timeout esperando jsQR');
+                        
+                        // Último intento: cargar directamente
+                        const script = document.createElement('script');
+                        script.src = 'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js';
+                        script.onload = () => {
+                            console.log('✅ jsQR cargado en último intento');
+                            setTimeout(() => resolve(typeof jsQR !== 'undefined'), 100);
+                        };
+                        script.onerror = () => resolve(false);
+                        document.head.appendChild(script);
+                    }
+                }, 100);
+            });
+        }
 
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 Inicializando gestión de clientes...');
@@ -1705,6 +1778,8 @@
             stopRedeemQRScanner();
         }
 
+        // Reemplazar las funciones startRedeemQRScanner, scanRedeemFrame y handleRedeemQRCode con:
+
         async function startRedeemQRScanner() {
             console.log('📷 Iniciando escáner QR para canje...');
             
@@ -1712,43 +1787,90 @@
             const canvas = document.getElementById('redeem-scanner-canvas');
             
             try {
-                redeemScannerStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment' }
-                });
+                // Esperar a que jsQR esté disponible
+                console.log('⏳ Esperando jsQR...');
+                const jsQRLoaded = await waitForJsQR();
                 
+                if (!jsQRLoaded) {
+                    showRedeemError('Error: No se pudo cargar el lector de QR');
+                    return;
+                }
+                
+                // Verificar si el navegador soporta getUserMedia
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Tu navegador no soporta acceso a la cámara');
+                }
+
+                // Detener stream actual si existe
+                if (redeemScannerStream) {
+                    redeemScannerStream.getTracks().forEach(track => track.stop());
+                }
+
+                const constraints = {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280, min: 640 },
+                        height: { ideal: 720, min: 480 }
+                    }
+                };
+
+                redeemScannerStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = redeemScannerStream;
                 redeemScannerActive = true;
                 
-                video.addEventListener('loadedmetadata', () => {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    scanRedeemFrame();
+                // Esperar a que el video cargue
+                await new Promise((resolve, reject) => {
+                    video.addEventListener('loadedmetadata', () => {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        console.log('📐 Video listo para canje:', video.videoWidth, 'x', video.videoHeight);
+                        scanRedeemFrame();
+                        resolve();
+                    });
+                    
+                    video.addEventListener('error', reject);
+                    setTimeout(() => reject(new Error('Timeout cargando cámara')), 10000);
                 });
                 
             } catch (error) {
                 console.error('❌ Error starting redeem QR scanner:', error);
-                showRedeemError('Error accediendo a la cámara');
+                
+                if (error.name === 'NotAllowedError') {
+                    showRedeemError('Permisos de cámara denegados. Permite el acceso a la cámara.');
+                } else if (error.name === 'NotFoundError') {
+                    showRedeemError('No se encontró ninguna cámara en el dispositivo.');
+                } else if (error.name === 'NotReadableError') {
+                    showRedeemError('La cámara está siendo usada por otra aplicación.');
+                } else {
+                    showRedeemError('Error accediendo a la cámara: ' + error.message);
+                }
             }
         }
 
         function scanRedeemFrame() {
-            if (!redeemScannerActive) return;
-            
+            if (!redeemScannerActive || typeof jsQR === 'undefined') return;
+
             const video = document.getElementById('redeem-scanner-video');
             const canvas = document.getElementById('redeem-scanner-canvas');
             const context = canvas.getContext('2d');
             
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
-                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height);
-                
-                if (code) {
-                    console.log('📱 QR detectado para canje:', code.data);
-                    handleRedeemQRCode(code.data);
-                    return;
+            try {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: "dontInvert"
+                    });
+                    
+                    if (code) {
+                        console.log('📱 QR detectado para canje:', code.data);
+                        handleRedeemQRCode(code.data);
+                        return;
+                    }
                 }
+            } catch (error) {
+                console.error('❌ Error en scanRedeemFrame:', error);
             }
             
             requestAnimationFrame(scanRedeemFrame);
@@ -1757,17 +1879,27 @@
         function handleRedeemQRCode(qrData) {
             console.log('🔍 Procesando QR para canje:', qrData);
             
-            // Validar que el QR pertenece al cliente seleccionado
-            const clientCode = selectedClient.personalQR?.code || `USER-${selectedClient.id.toUpperCase().slice(-8)}`;
+            // Validar que el QR es del formato correcto (USER:userId:fixedCode)
+            const parts = qrData.split(':');
             
-            if (qrData.includes(clientCode) || qrData.includes(selectedClient.id)) {
-                console.log('✅ QR válido para el cliente');
-                stopRedeemQRScanner();
-                processRedeemConfirmation();
-            } else {
+            if (parts.length !== 3 || parts[0] !== 'USER') {
+                console.warn('❌ Formato de QR inválido:', qrData);
+                showRedeemError('Código QR inválido. Debe ser el QR personal del cliente.');
+                return;
+            }
+            
+            const [type, scannedUserId, fixedCode] = parts;
+            
+            // Validar que el QR pertenece al cliente seleccionado
+            if (scannedUserId !== selectedClient.id) {
                 console.warn('❌ QR no corresponde al cliente seleccionado');
                 showRedeemError('El código QR no corresponde al cliente seleccionado');
+                return;
             }
+            
+            console.log('✅ QR válido para el cliente');
+            stopRedeemQRScanner();
+            processRedeemConfirmation();
         }
 
         function validateManualCode() {
@@ -1780,16 +1912,50 @@
             
             console.log('🔍 Validando código manual:', manualCode);
             
-            // Validar código
-            const clientCode = selectedClient.personalQR?.code || `USER-${selectedClient.id.toUpperCase().slice(-8)}`;
+            // El código manual puede ser:
+            // 1. El código de display del QR (ej: XMFY-A01RU5)
+            // 2. El código completo del QR (ej: USER:XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2:A01RU5)
             
-            if (manualCode === clientCode || manualCode.includes(selectedClient.id.toUpperCase())) {
+            let isValid = false;
+            
+            // Verificar si es el displayCode
+            const expectedDisplayCode = `${selectedClient.id.substring(0, 4).toUpperCase()}-${generateFixedUserCode(selectedClient.id)}`;
+            if (manualCode === expectedDisplayCode) {
+                isValid = true;
+            }
+            
+            // Verificar si es el código completo
+            const expectedFullCode = `USER:${selectedClient.id}:${generateFixedUserCode(selectedClient.id)}`;
+            if (manualCode === expectedFullCode) {
+                isValid = true;
+            }
+            
+            // Verificar si contiene el ID del cliente
+            if (manualCode.includes(selectedClient.id.toUpperCase())) {
+                isValid = true;
+            }
+            
+            if (isValid) {
                 console.log('✅ Código manual válido');
                 processRedeemConfirmation();
             } else {
                 console.warn('❌ Código manual inválido');
                 showRedeemError('Código incorrecto. Verifica con el cliente.');
             }
+        }
+
+        // Función auxiliar para generar el código fijo (igual que en perfil.html)
+        function generateFixedUserCode(userId) {
+            let hash = 0;
+            for (let i = 0; i < userId.length; i++) {
+                const char = userId.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            
+            const positiveHash = Math.abs(hash);
+            const base36 = positiveHash.toString(36).toUpperCase();
+            return (base36 + '000000').substring(0, 6);
         }
 
         function processRedeemConfirmation() {
@@ -1816,14 +1982,16 @@
             console.log('✅ Cliente confirmó el canje, procesando...');
             
             try {
-                // Aquí iría la lógica real de Firebase para procesar el canje
-                // await procesarCanjeFirebase(selectedClient.id, redeemPoints, currentUser.uid);
+                // Usar la función real de Firebase para procesar el canje
+                const result = await window.procesarCanje(selectedClient.id, redeemPoints, currentUser.uid);
                 
-                // Simular éxito
+                console.log('🎉 Canje procesado exitosamente:', result);
+                
+                // Actualizar datos localmente
                 selectedClient.totalPoints -= redeemPoints;
                 selectedClient.totalRedeemed = (selectedClient.totalRedeemed || 0) + redeemPoints;
                 
-                // Actualizar display
+                // Actualizar display en modal
                 document.getElementById('modal-client-points').textContent = selectedClient.totalPoints;
                 document.getElementById('available-points-text').textContent = selectedClient.totalPoints;
                 document.getElementById('redeem-points').max = selectedClient.totalPoints;
@@ -1834,15 +2002,13 @@
                 document.getElementById('success-points').textContent = `${redeemPoints} puntos`;
                 showStep('step-success');
                 
-                // Recargar lista de clientes
+                // Recargar datos después de un segundo
                 setTimeout(() => {
                     calculateClientStats();
                     updateClientStats();
                     displayClients();
                     loadClientTransactionHistory(selectedClient.id);
                 }, 1000);
-                
-                console.log('🎉 Canje procesado exitosamente');
                 
             } catch (error) {
                 console.error('❌ Error procesando canje:', error);
