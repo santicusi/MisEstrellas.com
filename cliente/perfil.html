@@ -10,7 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-    
+
 
     <link rel="stylesheet" href="../css/main.css">
     <link rel="stylesheet" href="../css/components.css">
@@ -512,81 +512,58 @@
         async function drawQRCodeToCanvas(canvas, text) {
             console.log('📱 Generando QR REAL para:', text);
             
+            const ctx = canvas.getContext('2d');
+            
             try {
-                // Cargar QRCode.js si no está disponible
-                if (typeof QRCode === 'undefined') {
-                    await loadQRCodeLibrary();
+                // Verificar si QRCode está disponible
+                if (typeof QRCode !== 'undefined') {
+                    console.log('✅ Usando librería QRCode para generar QR real');
+                    
+                    // Limpiar canvas
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, 200, 200);
+                    
+                    // Generar QR real usando la librería
+                    await new Promise((resolve, reject) => {
+                        QRCode.toCanvas(text, {
+                            width: 180,
+                            margin: 1,
+                            color: {
+                                dark: '#000000',  // Negro para mejor detección
+                                light: '#FFFFFF'
+                            }
+                        }, function (error, qrCanvas) {
+                            if (error) {
+                                console.error('❌ Error generando QR con librería:', error);
+                                reject(error);
+                                return;
+                            }
+                            
+                            // Dibujar QR real en el canvas principal
+                            ctx.drawImage(qrCanvas, 10, 10, 180, 180);
+                            
+                            // Agregar borde decorativo naranja
+                            ctx.strokeStyle = '#FF8C42';
+                            ctx.lineWidth = 3;
+                            ctx.strokeRect(5, 5, 190, 190);
+                            
+                            console.log('✅ QR REAL generado exitosamente con librería');
+                            resolve();
+                        });
+                    });
+                    
+                } else {
+                    console.warn('⚠️ Librería QRCode no disponible, usando fallback');
+                    drawFallbackQR(ctx, text);
                 }
-                
-                // Limpiar canvas
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#FFFFFF';
-                ctx.fillRect(0, 0, 200, 200);
-                
-                // Generar QR real usando QRCode.js
-                const qrCanvas = document.createElement('canvas');
-                QRCode.toCanvas(qrCanvas, text, {
-                    width: 180,
-                    margin: 1,
-                    color: {
-                        dark: '#000000',  // Negro para mejor detección
-                        light: '#FFFFFF'
-                    }
-                }, function (error) {
-                    if (error) {
-                        console.error('❌ Error generando QR:', error);
-                        // Fallback: dibujar patrón simple
-                        drawFallbackQR(ctx, text);
-                        return;
-                    }
-                    
-                    // Dibujar QR real en el canvas principal
-                    ctx.drawImage(qrCanvas, 10, 10, 180, 180);
-                    
-                    // Agregar borde decorativo naranja
-                    ctx.strokeStyle = '#FF8C42';
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(5, 5, 190, 190);
-                    
-                    console.log('✅ QR REAL generado exitosamente');
-                });
                 
             } catch (error) {
                 console.error('❌ Error en drawQRCodeToCanvas:', error);
-                drawFallbackQR(canvas.getContext('2d'), text);
+                drawFallbackQR(ctx, text);
             }
         }
 
-        // Función para cargar QRCode.js dinámicamente
-        function loadQRCodeLibrary() {
-            return new Promise((resolve, reject) => {
-                if (typeof QRCode !== 'undefined') {
-                    resolve();
-                    return;
-                }
-                
-                const script = document.createElement('script');
-                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js';
-                
-                script.onload = () => {
-                    console.log('✅ QRCode library cargada');
-                    resolve();
-                };
-                
-                script.onerror = () => {
-                    // Intentar con otra librería
-                    const script2 = document.createElement('script');
-                    script2.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
-                    script2.onload = () => resolve();
-                    script2.onerror = () => reject(new Error('No se pudo cargar QRCode'));
-                    document.head.appendChild(script2);
-                };
-                
-                document.head.appendChild(script);
-            });
-        }
-
-        // Fallback si no se puede generar QR real
+        // Mantener la función fallback igual
         function drawFallbackQR(ctx, text) {
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, 200, 200);
