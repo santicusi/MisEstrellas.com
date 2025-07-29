@@ -15,6 +15,9 @@
     <link rel="stylesheet" href="../css/components.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- jsPDF para generar reportes PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <style>
 :root {
@@ -1330,39 +1333,303 @@ body {
             }
         }
 
-        function exportReport() {
-            console.log('📥 Exportando reporte...');
+        // exportReport()
+        async function exportReport() {
+            console.log('📄 Generando reporte PDF...');
             
-            // Crear contenido del reporte
-            const reportData = {
-                business: currentUser.email,
-                generatedAt: new Date().toISOString(),
-                totalActivities: allActivities.length,
-                filteredActivities: filteredActivities.length,
-                activities: filteredActivities.map(activity => ({
-                    type: activity.type,
-                    description: activity.description,
-                    points: activity.points,
-                    date: activity.timestamp.toISOString(),
-                    client: activity.clientName
-                }))
-            };
+            try {
+                // Cargar jsPDF
+                await loadJsPDF();
+                
+                // Obtener datos del negocio
+                const businessData = await getBusinessData();
+                
+                // Crear el PDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // Configuración de colores
+                const colors = {
+                    primary: [255, 140, 66],     // Naranja principal
+                    secondary: [170, 170, 170],  // Gris
+                    success: [76, 175, 80],      // Verde
+                    error: [244, 67, 54],        // Rojo
+                    dark: [15, 15, 15],          // Negro
+                    white: [255, 255, 255]       // Blanco
+                };
+                
+                let yPosition = 20;
+                
+                // === HEADER DEL REPORTE ===
+                // Fondo del header
+                doc.setFillColor(...colors.primary);
+                doc.rect(0, 0, 210, 50, 'F');
+                
+                // Logo/Título
+                doc.setTextColor(...colors.white);
+                doc.setFontSize(24);
+                doc.setFont('helvetica', 'bold');
+                doc.text('MisEstrellas', 20, 25);
+                
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Reporte de Actividad', 20, 35);
+                
+                // Fecha de generación
+                doc.setFontSize(10);
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                doc.text(`Generado: ${dateStr}`, 20, 42);
+                
+                yPosition = 70;
+                
+                // === INFORMACIÓN DEL NEGOCIO ===
+                doc.setTextColor(...colors.dark);
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Información del Negocio', 20, yPosition);
+                yPosition += 15;
+                
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Negocio: ${businessData.name}`, 20, yPosition);
+                yPosition += 8;
+                doc.text(`Email: ${businessData.email}`, 20, yPosition);
+                yPosition += 8;
+                if (businessData.address) {
+                    doc.text(`Dirección: ${businessData.address}`, 20, yPosition);
+                    yPosition += 8;
+                }
+                
+                yPosition += 10;
+                
+                // === PERÍODO DEL REPORTE ===
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Período del Reporte', 20, yPosition);
+                yPosition += 10;
+                
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'normal');
+                const dateFrom = document.getElementById('date-from').value;
+                const dateTo = document.getElementById('date-to').value;
+                
+                if (dateFrom && dateTo) {
+                    const fromFormatted = new Date(dateFrom).toLocaleDateString('es-ES');
+                    const toFormatted = new Date(dateTo).toLocaleDateString('es-ES');
+                    doc.text(`Desde: ${fromFormatted} - Hasta: ${toFormatted}`, 20, yPosition);
+                } else {
+                    doc.text('Período: Todas las fechas', 20, yPosition);
+                }
+                yPosition += 15;
+                
+                // === RESUMEN ESTADÍSTICO ===
+                doc.setFillColor(245, 245, 245);
+                doc.rect(15, yPosition, 180, 35, 'F');
+                
+                doc.setTextColor(...colors.dark);
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Resumen Estadístico', 20, yPosition + 10);
+                
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'normal');
+                
+                // Calcular estadísticas
+                const stats = calculateReportStats();
+                
+                doc.text(`Total de Actividades: ${stats.totalActivities}`, 20, yPosition + 20);
+                doc.text(`Puntos Otorgados: ${stats.totalEarned}`, 75, yPosition + 20);
+                doc.text(`Puntos Canjeados: ${stats.totalRedeemed}`, 130, yPosition + 20);
+                
+                doc.text(`Clientes Únicos: ${stats.uniqueClients}`, 20, yPosition + 28);
+                doc.text(`Balance: ${stats.balance}`, 75, yPosition + 28);
+                
+                yPosition += 50;
+                
+                // === DETALLE DE ACTIVIDADES ===
+                doc.setTextColor(...colors.dark);
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Detalle de Actividades', 20, yPosition);
+                yPosition += 15;
+                
+                // Headers de la tabla
+                doc.setFillColor(...colors.primary);
+                doc.rect(15, yPosition - 5, 180, 12, 'F');
+                
+                doc.setTextColor(...colors.white);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Fecha', 20, yPosition + 3);
+                doc.text('Cliente', 50, yPosition + 3);
+                doc.text('Actividad', 110, yPosition + 3);
+                doc.text('Puntos', 160, yPosition + 3);
+                
+                yPosition += 15;
+                
+                // Filas de actividades
+                doc.setTextColor(...colors.dark);
+                doc.setFont('helvetica', 'normal');
+                
+                const maxActivities = 25; // Límite para que quepa en una página
+                const activitiesToShow = filteredActivities.slice(0, maxActivities);
+                
+                activitiesToShow.forEach((activity, index) => {
+                    // Alternar color de fondo
+                    if (index % 2 === 0) {
+                        doc.setFillColor(250, 250, 250);
+                        doc.rect(15, yPosition - 3, 180, 8, 'F');
+                    }
+                    
+                    const date = activity.timestamp.toLocaleDateString('es-ES', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: '2-digit'
+                    });
+                    
+                    const clientName = activity.clientName.length > 15 
+                        ? activity.clientName.substring(0, 15) + '...' 
+                        : activity.clientName;
+                    
+                    const activityType = activity.type === 'earned' ? 'Ganó puntos' : 'Canjeó puntos';
+                    
+                    // Color de los puntos según el tipo
+                    if (activity.type === 'earned') {
+                        doc.setTextColor(...colors.success);
+                    } else {
+                        doc.setTextColor(...colors.error);
+                    }
+                    
+                    doc.text(date, 20, yPosition);
+                    doc.setTextColor(...colors.dark);
+                    doc.text(clientName, 50, yPosition);
+                    doc.text(activityType, 110, yPosition);
+                    
+                    // Puntos con color
+                    if (activity.type === 'earned') {
+                        doc.setTextColor(...colors.success);
+                        doc.text(`+${activity.points}`, 160, yPosition);
+                    } else {
+                        doc.setTextColor(...colors.error);
+                        doc.text(`-${activity.points}`, 160, yPosition);
+                    }
+                    
+                    doc.setTextColor(...colors.dark);
+                    yPosition += 8;
+                    
+                    // Verificar si necesitamos nueva página
+                    if (yPosition > 250) {
+                        doc.addPage();
+                        yPosition = 30;
+                    }
+                });
+                
+                // Nota si hay más actividades
+                if (filteredActivities.length > maxActivities) {
+                    yPosition += 10;
+                    doc.setFontSize(9);
+                    doc.setTextColor(...colors.secondary);
+                    doc.text(`Nota: Mostrando las primeras ${maxActivities} actividades de ${filteredActivities.length} total.`, 20, yPosition);
+                }
+                
+                // === FOOTER ===
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.setTextColor(...colors.secondary);
+                    doc.text(`Página ${i} de ${pageCount}`, 170, 285);
+                    doc.text('Generado por MisEstrellas', 20, 285);
+                }
+                
+                // Guardar el PDF
+                const fileName = `reporte-${businessData.name.replace(/[^a-zA-Z0-9]/g, '_')}-${new Date().toISOString().split('T')[0]}.pdf`;
+                doc.save(fileName);
+                
+                showSuccess('📄 Reporte PDF generado exitosamente');
+                
+            } catch (error) {
+                console.error('❌ Error generando PDF:', error);
+                showError('Error generando el reporte PDF');
+            }
+        }
+
+        // === FUNCIONES AUXILIARES ===
+
+        async function loadJsPDF() {
+            if (window.jspdf) return;
             
-            // Crear y descargar archivo JSON
-            const blob = new Blob([JSON.stringify(reportData, null, 2)], {
-                type: 'application/json'
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+                script.onload = () => {
+                    console.log('✅ jsPDF cargado');
+                    resolve();
+                };
+                script.onerror = () => {
+                    console.error('❌ Error cargando jsPDF');
+                    reject(new Error('No se pudo cargar jsPDF'));
+                };
+                document.head.appendChild(script);
             });
+        }
+
+        async function getBusinessData() {
+            try {
+                if (!currentUser) throw new Error('Usuario no autenticado');
+                
+                const businessDoc = await window.db.collection('businesses').doc(currentUser.uid).get();
+                
+                if (businessDoc.exists) {
+                    const data = businessDoc.data();
+                    return {
+                        name: data.name || 'Mi Negocio',
+                        email: currentUser.email,
+                        address: data.address || '',
+                        phone: data.phone || ''
+                    };
+                } else {
+                    return {
+                        name: 'Mi Negocio',
+                        email: currentUser.email,
+                        address: '',
+                        phone: ''
+                    };
+                }
+            } catch (error) {
+                console.error('❌ Error obteniendo datos del negocio:', error);
+                return {
+                    name: 'Mi Negocio',
+                    email: currentUser?.email || 'Email no disponible',
+                    address: '',
+                    phone: ''
+                };
+            }
+        }
+
+        function calculateReportStats() {
+            const uniqueClients = new Set(filteredActivities.map(a => a.clientName)).size;
+            const totalEarned = filteredActivities
+                .filter(a => a.type === 'earned')
+                .reduce((sum, a) => sum + a.points, 0);
+            const totalRedeemed = filteredActivities
+                .filter(a => a.type === 'redeemed')
+                .reduce((sum, a) => sum + a.points, 0);
             
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `reporte-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            showSuccess('Reporte exportado exitosamente');
+            return {
+                totalActivities: filteredActivities.length,
+                uniqueClients,
+                totalEarned,
+                totalRedeemed,
+                balance: totalEarned - totalRedeemed
+            };
         }
 
         async function refreshData() {
