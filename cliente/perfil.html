@@ -517,51 +517,151 @@
             try {
                 // Verificar si QRCode está disponible
                 if (typeof QRCode !== 'undefined') {
-                    console.log('✅ Usando librería QRCode para generar QR real');
+                    console.log('✅ Librería QRCode disponible, generando QR real...');
                     
                     // Limpiar canvas
                     ctx.fillStyle = '#FFFFFF';
                     ctx.fillRect(0, 0, 200, 200);
                     
-                    // Generar QR real usando la librería
-                    await new Promise((resolve, reject) => {
-                        QRCode.toCanvas(text, {
+                    // Crear un canvas temporal para el QR
+                    const tempCanvas = document.createElement('canvas');
+                    
+                    // Usar QRCode.toCanvas (sintaxis correcta para qrcode@1.5.3)
+                    try {
+                        await QRCode.toCanvas(tempCanvas, text, {
                             width: 180,
                             margin: 1,
                             color: {
                                 dark: '#000000',  // Negro para mejor detección
                                 light: '#FFFFFF'
-                            }
-                        }, function (error, qrCanvas) {
-                            if (error) {
-                                console.error('❌ Error generando QR con librería:', error);
-                                reject(error);
-                                return;
-                            }
+                            },
+                            errorCorrectionLevel: 'M'
+                        });
+                        
+                        // Dibujar el QR real en el canvas principal
+                        ctx.drawImage(tempCanvas, 10, 10, 180, 180);
+                        
+                        // Agregar borde decorativo naranja
+                        ctx.strokeStyle = '#FF8C42';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(5, 5, 190, 190);
+                        
+                        console.log('✅ QR REAL generado exitosamente con librería');
+                        return;
+                        
+                    } catch (qrError) {
+                        console.error('❌ Error con QRCode.toCanvas:', qrError);
+                        throw qrError;
+                    }
+                    
+                } else {
+                    console.warn('⚠️ Librería QRCode no disponible');
+                    throw new Error('QRCode library not available');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error generando QR, usando fallback:', error);
+                
+                // Si falla, intentar con una implementación más simple
+                try {
+                    await generateSimpleQR(ctx, text);
+                } catch (fallbackError) {
+                    console.error('❌ Error en fallback:', fallbackError);
+                    drawFallbackQR(ctx, text);
+                }
+            }
+        }
+
+        // Nueva función para generar QR simple si la librería falla
+        async function generateSimpleQR(ctx, text) {
+            console.log('🔄 Intentando generar QR con método alternativo...');
+            
+            // Usar una librería QR más simple desde CDN
+            return new Promise((resolve, reject) => {
+                // Cargar qrious si QRCode no funciona
+                if (typeof QRious === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js';
+                    
+                    script.onload = () => {
+                        console.log('✅ QRious cargado como alternativa');
+                        try {
+                            const qr = new QRious({
+                                value: text,
+                                size: 180,
+                                background: 'white',
+                                foreground: 'black'
+                            });
                             
-                            // Dibujar QR real en el canvas principal
-                            ctx.drawImage(qrCanvas, 10, 10, 180, 180);
+                            const img = new Image();
+                            img.onload = () => {
+                                ctx.fillStyle = '#FFFFFF';
+                                ctx.fillRect(0, 0, 200, 200);
+                                ctx.drawImage(img, 10, 10, 180, 180);
+                                
+                                // Borde naranja
+                                ctx.strokeStyle = '#FF8C42';
+                                ctx.lineWidth = 3;
+                                ctx.strokeRect(5, 5, 190, 190);
+                                
+                                console.log('✅ QR generado con QRious');
+                                resolve();
+                            };
+                            img.src = qr.toDataURL();
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                    
+                    script.onerror = () => reject(new Error('No se pudo cargar QRious'));
+                    document.head.appendChild(script);
+                } else {
+                    // QRious ya está disponible
+                    try {
+                        const qr = new QRious({
+                            value: text,
+                            size: 180,
+                            background: 'white',
+                            foreground: 'black'
+                        });
+                        
+                        const img = new Image();
+                        img.onload = () => {
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.fillRect(0, 0, 200, 200);
+                            ctx.drawImage(img, 10, 10, 180, 180);
                             
-                            // Agregar borde decorativo naranja
+                            // Borde naranja
                             ctx.strokeStyle = '#FF8C42';
                             ctx.lineWidth = 3;
                             ctx.strokeRect(5, 5, 190, 190);
                             
-                            console.log('✅ QR REAL generado exitosamente con librería');
+                            console.log('✅ QR generado con QRious existente');
                             resolve();
-                        });
-                    });
-                    
-                } else {
-                    console.warn('⚠️ Librería QRCode no disponible, usando fallback');
-                    drawFallbackQR(ctx, text);
+                        };
+                        img.src = qr.toDataURL();
+                    } catch (error) {
+                        reject(error);
+                    }
                 }
-                
-            } catch (error) {
-                console.error('❌ Error en drawQRCodeToCanvas:', error);
-                drawFallbackQR(ctx, text);
-            }
+            });
         }
+
+        // Agregar después de la función drawFallbackQR:
+        window.testQRGeneration = function() {
+            console.log('🧪 Probando generación de QR...');
+            console.log('QRCode disponible:', typeof QRCode !== 'undefined');
+            console.log('QRious disponible:', typeof QRious !== 'undefined');
+            
+            if (personalQRCode) {
+                console.log('Código actual:', personalQRCode);
+                console.log('Regenerando QR...');
+                refreshQR();
+            } else {
+                console.log('No hay código QR personal generado aún');
+                generatePersonalQR();
+            }
+        };
 
         // Mantener la función fallback igual
         function drawFallbackQR(ctx, text) {
