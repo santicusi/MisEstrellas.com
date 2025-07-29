@@ -17,6 +17,8 @@ let db;
 let storage;
 
 // Función para inicializar Firebase
+// 🔥 REEMPLAZA la función initializeFirebase() en tu firebase-config.js
+
 function initializeFirebase() {
     return new Promise((resolve, reject) => {
         try {
@@ -34,10 +36,18 @@ function initializeFirebase() {
                 app = firebase.initializeApp(firebaseConfig);
             }
 
-            // Inicializar servicios
+            // Inicializar servicios con verificación
             auth = firebase.auth();
             db = firebase.firestore();
-            storage = firebase.storage();
+            
+            // 🔥 CORREGIDO: Verificar si storage está disponible
+            if (firebase.storage) {
+                storage = firebase.storage();
+                console.log('✅ Firebase Storage inicializado');
+            } else {
+                console.warn('⚠️ Firebase Storage no está disponible');
+                storage = null;
+            }
 
             console.log('✅ Servicios de Firebase inicializados');
 
@@ -65,22 +75,33 @@ function initializeFirebase() {
 }
 
 // Configurar Firestore
+// 🔥 REEMPLAZA también la función configureFirestore() para evitar errores
+
 function configureFirestore() {
     try {
-        // Habilitar persistencia offline (opcional)
-        db.enablePersistence({ synchronizeTabs: true })
-            .then(() => {
-                console.log('✅ Persistencia de Firestore habilitada');
-            })
-            .catch((err) => {
-                if (err.code === 'failed-precondition') {
-                    console.warn('⚠️ Múltiples pestañas abiertas, persistencia limitada');
-                } else if (err.code === 'unimplemented') {
-                    console.warn('⚠️ Navegador no soporta persistencia');
-                } else {
-                    console.warn('⚠️ Error de persistencia:', err);
-                }
-            });
+        if (!db) {
+            console.warn('⚠️ Firestore no está disponible');
+            return;
+        }
+
+        // Habilitar persistencia offline (opcional) - pero solo si está disponible
+        if (db.enablePersistence) {
+            db.enablePersistence({ synchronizeTabs: true })
+                .then(() => {
+                    console.log('✅ Persistencia de Firestore habilitada');
+                })
+                .catch((err) => {
+                    if (err.code === 'failed-precondition') {
+                        console.warn('⚠️ Múltiples pestañas abiertas, persistencia limitada');
+                    } else if (err.code === 'unimplemented') {
+                        console.warn('⚠️ Navegador no soporta persistencia');
+                    } else {
+                        console.warn('⚠️ Error de persistencia:', err);
+                    }
+                });
+        } else {
+            console.warn('⚠️ Persistencia de Firestore no disponible');
+        }
     } catch (error) {
         console.warn('⚠️ Error configurando Firestore:', error);
     }
@@ -289,11 +310,13 @@ const FirestoreHelper = {
 };
 
 // Storage Helper Functions
+// 🔥 REEMPLAZA StorageHelper en tu firebase-config.js
+
 const StorageHelper = {
     // Upload file
     async uploadFile(path, file, metadata = {}) {
         try {
-            if (!storage) throw new Error('Storage no está inicializado');
+            if (!storage) throw new Error('Storage no está inicializado o no disponible');
             
             const storageRef = storage.ref(path);
             const uploadTask = await storageRef.put(file, metadata);
@@ -309,7 +332,7 @@ const StorageHelper = {
     // Delete file
     async deleteFile(path) {
         try {
-            if (!storage) throw new Error('Storage no está inicializado');
+            if (!storage) throw new Error('Storage no está inicializado o no disponible');
             
             const storageRef = storage.ref(path);
             await storageRef.delete();
@@ -324,7 +347,7 @@ const StorageHelper = {
     // Get download URL
     async getDownloadURL(path) {
         try {
-            if (!storage) throw new Error('Storage no está inicializado');
+            if (!storage) throw new Error('Storage no está inicializado o no disponible');
             
             const storageRef = storage.ref(path);
             const url = await storageRef.getDownloadURL();
@@ -334,6 +357,11 @@ const StorageHelper = {
             console.error('❌ Error getting download URL:', error);
             throw error;
         }
+    },
+    
+    // Verificar si storage está disponible
+    isAvailable() {
+        return !!storage;
     }
 };
 
