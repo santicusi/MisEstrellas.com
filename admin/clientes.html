@@ -808,6 +808,66 @@
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
+
+
+
+    .scanning-indicator {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        background: rgba(255, 140, 66, 0.9);
+        color: white;
+        padding: 8px;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 100;
+    }
+
+    .redeem-scanner-container {
+        position: relative;
+    }
+
+    /* Mejorar el marco de escaneo */
+    .redeem-scan-frame {
+        animation: scannerPulse 2s infinite ease-in-out;
+        box-shadow: 
+            0 0 0 2px rgba(255, 140, 66, 0.8),
+            0 0 20px rgba(255, 140, 66, 0.3);
+    }
+
+    @keyframes scannerPulse {
+        0%, 100% { 
+            transform: scale(1);
+            opacity: 1;
+        }
+        50% { 
+            transform: scale(1.02);
+            opacity: 0.8;
+        }
+    }
+
+    /* Botón de prueba temporal */
+    .debug-button {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #FF8C42;
+        color: white;
+        border: none;
+        padding: 12px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 12px;
+        z-index: 10001;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .debug-button:hover {
+        background: #FF7A2B;
+    }
 </style>
 <body>
     <div class="container">
@@ -824,6 +884,16 @@
                 </div>
             </div>
         </header>
+
+        <!-- HTML adicional para indicadores -->
+        <div id="scanning-indicator" class="scanning-indicator" style="display: none;">
+            📱 Escaneando código QR del cliente...
+        </div>
+
+        <!-- Botón de debug temporal -->
+        <button class="debug-button" onclick="debugFullRedeemFlow()" style="display: none;">
+            🧪 Test Canje
+        </button>
 
         <!-- Search Section with Suggestions -->
         <div class="search-section">
@@ -1891,36 +1961,75 @@
                     
                     // Verificar que los datos de imagen sean válidos
                     if (imageData && imageData.data && imageData.width && imageData.height) {
-                        console.log('🔍 Analizando imagen:', imageData.width, 'x', imageData.height);
+                        
+                        // REDUCIR LOGS: Solo cada 30 frames (1 segundo aprox)
+                        if (Math.random() < 0.03) {
+                            console.log('🔍 Escaneando... (imagen válida)');
+                        }
                         
                         try {
-                            const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                                inversionAttempts: "attemptBoth"
-                            });
+                            // Probar múltiples enfoques de detección
+                            const detectionMethods = [
+                                { inversionAttempts: "dontInvert" },
+                                { inversionAttempts: "onlyInvert" },
+                                { inversionAttempts: "attemptBoth" }
+                            ];
                             
-                            if (code && code.data) {
-                                console.log('📱 QR detectado para canje:', code.data);
-                                handleRedeemQRCode(code.data);
-                                return;
+                            for (let method of detectionMethods) {
+                                const code = jsQR(imageData.data, imageData.width, imageData.height, method);
+                                
+                                if (code && code.data) {
+                                    console.log('📱 QR DETECTADO para canje:', code.data);
+                                    
+                                    // Verificar que sea formato válido antes de procesar
+                                    if (code.data.startsWith('USER:')) {
+                                        handleRedeemQRCode(code.data);
+                                        return; // Salir del bucle
+                                    } else {
+                                        console.log('⚠️ QR detectado pero formato inválido:', code.data);
+                                    }
+                                }
                             }
                         } catch (jsqrError) {
                             console.error('❌ Error específico de jsQR:', jsqrError);
                         }
-                    } else {
-                        console.warn('⚠️ Datos de imagen inválidos');
                     }
-                } else {
-                    console.log('⏳ Video no está listo aún');
                 }
             } catch (error) {
                 console.error('❌ Error en scanRedeemFrame:', error);
             }
             
-            requestAnimationFrame(scanRedeemFrame);
+            // Continuar escaneando
+            if (redeemScannerActive) {
+                requestAnimationFrame(scanRedeemFrame);
+            }
         }
+
+        window.testManualQR = function() {
+            if (!selectedClient) {
+                alert('Selecciona un cliente primero');
+                return;
+            }
+            
+            // Generar código de prueba del cliente seleccionado
+            const fixedCode = generateFixedUserCode(selectedClient.id);
+            const testQR = `USER:${selectedClient.id}:${fixedCode}`;
+            
+            console.log('🧪 Probando QR manual:', testQR);
+            
+            // Procesar directamente
+            handleRedeemQRCode(testQR);
+        };
 
         function handleRedeemQRCode(qrData) {
             console.log('🔍 Procesando QR para canje:', qrData);
+            
+            // Validar formato básico
+            if (!qrData || typeof qrData !== 'string') {
+                console.warn('❌ QR inválido: datos vacíos o tipo incorrecto');
+                showRedeemError('Código QR inválido');
+                return;
+            }
             
             // Validar que el QR es del formato correcto (USER:userId:fixedCode)
             const parts = qrData.split(':');
@@ -1933,14 +2042,37 @@
             
             const [type, scannedUserId, fixedCode] = parts;
             
+            // Validar que hay cliente seleccionado
+            if (!selectedClient || !selectedClient.id) {
+                console.warn('❌ No hay cliente seleccionado');
+                showRedeemError('Error: No hay cliente seleccionado');
+                return;
+            }
+            
             // Validar que el QR pertenece al cliente seleccionado
             if (scannedUserId !== selectedClient.id) {
                 console.warn('❌ QR no corresponde al cliente seleccionado');
+                console.log('  - QR Usuario:', scannedUserId);
+                console.log('  - Cliente seleccionado:', selectedClient.id);
                 showRedeemError('El código QR no corresponde al cliente seleccionado');
                 return;
             }
             
-            console.log('✅ QR válido para el cliente');
+            // Validar código fijo
+            const expectedFixedCode = generateFixedUserCode(selectedClient.id);
+            if (fixedCode !== expectedFixedCode) {
+                console.warn('❌ Código fijo no coincide');
+                console.log('  - Código QR:', fixedCode);
+                console.log('  - Código esperado:', expectedFixedCode);
+                showRedeemError('Código QR corrupto o inválido');
+                return;
+            }
+            
+            console.log('✅ QR VÁLIDO para el cliente:', selectedClient.name);
+            console.log('  - Usuario:', scannedUserId);
+            console.log('  - Código fijo:', fixedCode);
+            
+            // Detener escáner y proceder
             stopRedeemQRScanner();
             processRedeemConfirmation();
         }
@@ -2002,6 +2134,7 @@
             return (base36 + '000000').substring(0, 6);
         }
 
+        // 5. MEJORAR processRedeemConfirmation con mejor feedback
         function processRedeemConfirmation() {
             console.log('⏳ Esperando confirmación del cliente...');
             
@@ -2009,41 +2142,63 @@
             document.getElementById('waiting-points').textContent = `${redeemPoints} puntos`;
             showStep('step-waiting');
             
-            // Simular proceso de confirmación con notificación al cliente
-            console.log('📱 Enviando solicitud de confirmación al cliente...');
+            // Simular notificación al cliente
+            console.log('📱 Solicitando confirmación al cliente:', selectedClient.name);
+            console.log('💰 Cantidad a canjear:', redeemPoints, 'puntos');
             
-            // Simular tiempo de respuesta del cliente (3-8 segundos)
-            const waitTime = 3000 + (Math.random() * 5000);
+            // Simular tiempo de respuesta del cliente (3-6 segundos)
+            const waitTime = 3000 + (Math.random() * 3000);
+            
+            // Mostrar mensaje actualizado
+            const waitingStatus = document.querySelector('#step-waiting .loading-state p');
+            if (waitingStatus) {
+                waitingStatus.textContent = `El cliente ${selectedClient.name} debe confirmar el canje de ${redeemPoints} puntos en su dispositivo...`;
+            }
             
             setTimeout(() => {
-                // Simular diferentes respuestas del cliente
-                const responses = [
-                    { accepted: true, message: 'Cliente confirmó el canje' },
-                    { accepted: true, message: 'Canje autorizado por el cliente' },
-                    { accepted: false, message: 'El cliente canceló el canje' },
-                    { accepted: false, message: 'Cliente rechazó la transacción' }
-                ];
+                // 90% de probabilidad de aceptación (más realista)
+                const clientAccepted = Math.random() < 0.9;
                 
-                // 85% de probabilidad de aceptación
-                const clientResponse = Math.random() < 0.85 ? responses[0] : responses[2];
-                
-                console.log('📱 Respuesta del cliente:', clientResponse.message);
-                
-                if (clientResponse.accepted) {
-                    console.log('✅ Cliente ACEPTÓ el canje');
+                if (clientAccepted) {
+                    console.log('✅ Cliente CONFIRMÓ el canje');
+                    console.log('🎉 Procesando canje exitoso...');
                     processSuccessfulRedeem();
                 } else {
                     console.log('❌ Cliente RECHAZÓ el canje');
-                    showRedeemError(clientResponse.message);
+                    showRedeemError('El cliente canceló la transacción desde su dispositivo');
                 }
             }, waitTime);
-            
-            // Mostrar indicador de que se está esperando
-            const waitingStatus = document.querySelector('#step-waiting .loading-state p');
-            if (waitingStatus) {
-                waitingStatus.textContent = `Esperando confirmación del cliente para canjear ${redeemPoints} puntos...`;
-            }
         }
+
+        // 6. FUNCIÓN de debug para probar todo el flujo
+        window.debugFullRedeemFlow = function() {
+            if (!selectedClient) {
+                alert('Selecciona un cliente primero');
+                return;
+            }
+            
+            console.log('🧪 INICIANDO FLUJO COMPLETO DE CANJE DE PRUEBA');
+            console.log('  - Cliente:', selectedClient.name);
+            console.log('  - Puntos disponibles:', selectedClient.totalPoints);
+            
+            // Configurar puntos de prueba
+            redeemPoints = 1;
+            document.getElementById('redeem-points').value = redeemPoints;
+            
+            // Simular QR válido
+            const testQR = `USER:${selectedClient.id}:${generateFixedUserCode(selectedClient.id)}`;
+            console.log('  - QR de prueba:', testQR);
+            
+            // Abrir modal de canje
+            document.getElementById('redeem-modal').style.display = 'block';
+            showStep('step-choose-method');
+            
+            // Simular selección de método y código
+            setTimeout(() => {
+                console.log('🧪 Simulando código QR válido...');
+                handleRedeemQRCode(testQR);
+            }, 1000);
+        };
 
         async function processSuccessfulRedeem() {
             console.log('✅ Cliente confirmó el canje, procesando...');
@@ -2530,9 +2685,56 @@
             updateClientStats();
             
             showSuccessNotification('Cliente test agregado');
-        };
+            };
+
+            // Mostrar botón de debug solo en desarrollo
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                document.querySelector('.debug-button').style.display = 'block';
+            }
+
+            // Mejorar startRedeemQRScanner con indicador visual
+            const originalStartRedeemQRScanner = startRedeemQRScanner;
+            startRedeemQRScanner = async function() {
+                // Mostrar indicador
+                const indicator = document.getElementById('scanning-indicator');
+                if (indicator) {
+                    indicator.style.display = 'block';
+                    indicator.textContent = '📱 Iniciando escáner de códigos QR...';
+                }
+                
+                try {
+                    await originalStartRedeemQRScanner();
+                    
+                    // Actualizar indicador
+                    if (indicator) {
+                        indicator.textContent = '📱 Apunta la cámara al código QR del cliente';
+                    }
+                } catch (error) {
+                    // Ocultar indicador en caso de error
+                    if (indicator) {
+                        indicator.style.display = 'none';
+                    }
+                    throw error;
+                }
+            };
+
+            // Ocultar indicador al detener escáner
+            const originalStopRedeemQRScanner = stopRedeemQRScanner;
+            stopRedeemQRScanner = function() {
+                const indicator = document.getElementById('scanning-indicator');
+                if (indicator) {
+                    indicator.style.display = 'none';
+                }
+                
+                originalStopRedeemQRScanner();
+            };
 
         console.log('🎉 clientes.html mejorado cargado completamente');
+
+        console.log('🔧 Funciones de debug disponibles:');
+        console.log('  - testManualQR(): Probar QR del cliente seleccionado');
+        console.log('  - debugFullRedeemFlow(): Probar flujo completo de canje');
+        console.log('  - generateFixedUserCode(userId): Generar código fijo de un usuario');
     </script>
 </body>
 </html>
