@@ -88,130 +88,13 @@
     }
 }
 
-/* Mejorar visualización de banderas */
-.iti__flag-container {
-    width: 52px !important;
-    border-right: 1px solid var(--border-color) !important;
-}
-
-.iti__selected-flag {
-    padding: 8px 12px !important;
-    background: var(--input-bg) !important;
-    border-radius: 8px 0 0 8px !important;
-}
-
-.iti__arrow {
-    border-left: 4px solid transparent !important;
-    border-right: 4px solid transparent !important;
-    border-top: 4px solid var(--secondary-gray) !important;
-    margin-left: 6px !important;
-}
-
-.iti__country-list {
-    background: var(--card-bg) !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: 8px !important;
-    box-shadow: 0 8px 24px var(--shadow-dark) !important;
-    max-height: 200px !important;
-    overflow-y: auto !important;
-}
-
-.iti__country {
-    padding: 8px 12px !important;
-    color: var(--text-white) !important;
-    border-bottom: 1px solid var(--border-color) !important;
-}
-
-.iti__country:hover {
-    background: var(--input-bg) !important;
-}
-
-.iti__country.iti__highlight {
-    background: var(--primary-orange) !important;
-}
-
-.iti__dial-code {
-    color: var(--secondary-gray) !important;
-}
-
-/* Ajustar el input para que se vea mejor con la bandera */
-#client-phone {
-    padding-left: 60px !important;
-    border-radius: 0 8px 8px 0 !important;
-}
-
 /* Ocultar banderas cuando se usa email */
 .country-flag.hidden {
     display: none !important;
 }
 
-
-/* Asegurar que solo se muestre un campo a la vez */
-.input-group {
-    position: relative;
-}
-
-#client-email {
-    display: none;
-    width: 100%;
-    background: var(--input-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 12px 16px;
-    color: var(--text-white);
-    font-size: 1rem;
-}
-
-#client-email:focus {
-    border-color: var(--primary-orange);
-    outline: none;
-}
-
-/* Asegurar que el contenedor del teléfono ocupe todo el ancho */
-.iti {
-    width: 100% !important;
-    display: flex !important;
-}
-
-.iti__tel-input {
-    flex: 1 !important;
-    background: var(--input-bg) !important;
-    border: 1px solid var(--border-color) !important;
-    border-left: none !important;
-    border-radius: 0 8px 8px 0 !important;
-    color: var(--text-white) !important;
-    padding: 12px 16px !important;
-}
-
-/* Mejorar las banderas - versión actualizada */
-/* Mejorar las banderas - versión corregida */
-.iti__flag {
-    width: 20px !important;
-    height: 15px !important;
-    background-image: url("https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/img/flags.png") !important;
-    background-repeat: no-repeat !important;
-    background-color: transparent !important;
-    background-size: 5652px 15px !important;
-}
-
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-    .iti__flag {
-        background-image: url("https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/img/flags@2x.png") !important;
-        background-size: 5652px 30px !important;
-    }
-}
-
-/* Banderas específicas para Colombia */
-.iti__flag.iti__co {
-    background-position: -462px 0px !important;
-}
-
-.iti__flag.iti__us {
-    background-position: -5082px 0px !important;
-}
-
-.iti__flag.iti__mx {
-    background-position: -3174px 0px !important;
+.iti__country-name{
+    color: var(--secondary-gray);
 }
 </style>
 
@@ -361,13 +244,20 @@
             const phoneContainer = phoneField.closest('.iti');
             const inputGroup = phoneField.closest('.input-group');
             
+            // Obtener la bandera específicamente
+            const countryFlag = inputGroup.querySelector('.iti__flag-container');
+            
             if (isUsingEmail) {
                 // Ocultar completamente el input de teléfono y su contenedor
-                const phoneContainer = phoneField.closest('.iti');
                 if (phoneContainer) {
                     phoneContainer.style.display = 'none';
-                } else {
-                    phoneField.style.display = 'none';
+                }
+                phoneField.style.display = 'none';
+                
+                // Ocultar la bandera específicamente
+                if (countryFlag) {
+                    countryFlag.style.display = 'none';
+                    countryFlag.classList.add('hidden');
                 }
                 
                 // Mostrar el campo de email
@@ -380,13 +270,15 @@
                 
             } else {
                 // Mostrar el contenedor del teléfono
-                const phoneContainer = phoneField.closest('.iti');
                 if (phoneContainer) {
                     phoneContainer.style.display = 'flex';
-                    // Asegurar que el contenedor interno también esté visible
-                    phoneContainer.style.visibility = 'visible';
-                } else {
-                    phoneField.style.display = 'block';
+                }
+                phoneField.style.display = 'block';
+                
+                // Mostrar la bandera nuevamente
+                if (countryFlag) {
+                    countryFlag.style.display = 'block';
+                    countryFlag.classList.remove('hidden');
                 }
                 
                 // Ocultar el campo de email

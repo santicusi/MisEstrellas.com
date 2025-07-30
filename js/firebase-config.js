@@ -1584,3 +1584,253 @@ window.testQR = function(qrCode) {
 };
 
 console.log('🔄 Funciones QR mejoradas agregadas correctamente (versión simplificada)');
+
+
+
+// AGREGAR estas funciones corregidas al final de tu firebase-config.js:
+
+// CORREGIDO: Función para obtener perfil de usuario
+async function getUserProfile(userId) {
+    console.log('👤 Getting user profile for:', userId);
+    
+    try {
+        if (!window.db) {
+            console.warn('⚠️ Firestore no está disponible');
+            return null;
+        }
+        
+        const userDoc = await window.db.collection('users').doc(userId).get();
+        
+        if (userDoc.exists) {
+            console.log('✅ Perfil encontrado:', userDoc.data());
+            return userDoc.data();
+        } else {
+            console.log('📭 Perfil no encontrado para:', userId);
+            return null;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error obteniendo perfil:', error);
+        return null;
+    }
+}
+
+// CORREGIDO: Función para obtener estadísticas de usuario
+async function getUserStatistics(userId) {
+    console.log('📊 Getting user statistics for:', userId);
+    
+    try {
+        if (!window.db) {
+            console.warn('⚠️ Firestore no está disponible');
+            return {
+                totalStars: 0,
+                visitedBusinesses: 0,
+                thisMonthStars: 0
+            };
+        }
+        
+        // Obtener datos del usuario
+        const userDoc = await window.db.collection('users').doc(userId).get();
+        let totalStars = 0;
+        let visitedBusinesses = 0;
+        
+        if (userDoc.exists) {
+            const userData = userDoc.data();
+            totalStars = userData.totalPoints || userData.totalEarned || 0;
+            visitedBusinesses = userData.joinedBusinesses ? userData.joinedBusinesses.length : 0;
+        }
+        
+        // Calcular puntos del mes actual
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        
+        const monthlyTransactions = await window.db.collection('transactions')
+            .where('userId', '==', userId)
+            .where('type', '==', 'earned')
+            .where('createdAt', '>=', startOfMonth)
+            .get();
+        
+        let thisMonthStars = 0;
+        monthlyTransactions.forEach(doc => {
+            const transaction = doc.data();
+            thisMonthStars += transaction.points || 0;
+        });
+        
+        const stats = {
+            totalStars,
+            visitedBusinesses,
+            thisMonthStars
+        };
+        
+        console.log('✅ Estadísticas calculadas:', stats);
+        return stats;
+        
+    } catch (error) {
+        console.error('❌ Error obteniendo estadísticas:', error);
+        return {
+            totalStars: 0,
+            visitedBusinesses: 0,
+            thisMonthStars: 0
+        };
+    }
+}
+
+// NUEVA: Función para crear usuario demo con datos completos
+async function createDemoUser() {
+    console.log('🧪 Creando usuario demo completo...');
+    
+    const DEMO_USER_ID = 'XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2';
+    
+    try {
+        if (!window.db) {
+            console.warn('⚠️ Firestore no disponible para crear usuario demo');
+            return;
+        }
+        
+        // Verificar si ya existe
+        const userDoc = await window.db.collection('users').doc(DEMO_USER_ID).get();
+        
+        if (!userDoc.exists) {
+            console.log('👤 Creando nuevo usuario demo...');
+            
+            const demoUserData = {
+                name: 'María González',
+                email: 'maria.gonzalez@example.com',
+                phoneNumber: '+57 300 123 4567',
+                userType: 'client',
+                totalPoints: 45,
+                totalEarned: 85,
+                totalVisits: 12,
+                totalRedemptions: 2,
+                joinedBusinesses: [
+                    'CBSU8br1nARkQZgbbR6Sz8cb61v2', // Negocio demo
+                    'demo-business-2'
+                ],
+                isActive: true,
+                avatar: '../images/avatar.png',
+                createdAt: firebase.firestore.Timestamp.fromDate(new Date('2024-01-15')),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                personalQR: {
+                    code: `USER:${DEMO_USER_ID}:DEMO123`,
+                    displayCode: 'XMFY-DEMO123',
+                    userId: DEMO_USER_ID,
+                    fixedCode: 'DEMO123',
+                    createdAt: '2024-01-15T10:00:00.000Z'
+                }
+            };
+            
+            await window.db.collection('users').doc(DEMO_USER_ID).set(demoUserData);
+            console.log('✅ Usuario demo creado exitosamente');
+            
+            // Crear algunas transacciones demo
+            await createDemoTransactions(DEMO_USER_ID);
+            
+        } else {
+            console.log('✅ Usuario demo ya existe');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error creando usuario demo:', error);
+    }
+}
+
+// NUEVA: Función para crear transacciones demo
+async function createDemoTransactions(userId) {
+    console.log('💳 Creando transacciones demo...');
+    
+    try {
+        const transactions = [
+            {
+                userId: userId,
+                businessId: 'CBSU8br1nARkQZgbbR6Sz8cb61v2',
+                type: 'earned',
+                points: 10,
+                description: 'Puntos ganados en Restaurante Demo',
+                status: 'completed',
+                createdAt: firebase.firestore.Timestamp.fromDate(new Date('2024-01-20')),
+                metadata: {
+                    businessName: 'Restaurante Demo',
+                    clientName: 'María González'
+                }
+            },
+            {
+                userId: userId,
+                businessId: 'CBSU8br1nARkQZgbbR6Sz8cb61v2',
+                type: 'earned',
+                points: 15,
+                description: 'Puntos ganados en Restaurante Demo',
+                status: 'completed',
+                createdAt: firebase.firestore.Timestamp.fromDate(new Date('2024-02-10')),
+                metadata: {
+                    businessName: 'Restaurante Demo',
+                    clientName: 'María González'
+                }
+            },
+            {
+                userId: userId,
+                businessId: 'CBSU8br1nARkQZgbbR6Sz8cb61v2',
+                type: 'redeemed',
+                points: 20,
+                description: 'Puntos canjeados en Restaurante Demo',
+                status: 'completed',
+                createdAt: firebase.firestore.Timestamp.fromDate(new Date('2024-02-15')),
+                metadata: {
+                    businessName: 'Restaurante Demo',
+                    clientName: 'María González'
+                }
+            }
+        ];
+        
+        for (const transaction of transactions) {
+            await window.db.collection('transactions').add(transaction);
+        }
+        
+        console.log('✅ Transacciones demo creadas');
+        
+    } catch (error) {
+        console.error('❌ Error creando transacciones demo:', error);
+    }
+}
+
+// NUEVA: Función para inicializar datos demo
+window.initializeDemoData = async function() {
+    console.log('🎭 Inicializando datos demo...');
+    
+    try {
+        await createDemoUser();
+        
+        // Configurar usuario simulado
+        const simulatedUser = {
+            uid: 'XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2',
+            displayName: 'María González',
+            email: 'maria.gonzalez@example.com',
+            phoneNumber: '+57 300 123 4567'
+        };
+        
+        localStorage.setItem('simulatedUser', JSON.stringify(simulatedUser));
+        window.simulatedUser = simulatedUser;
+        
+        console.log('✅ Datos demo inicializados correctamente');
+        
+    } catch (error) {
+        console.error('❌ Error inicializando datos demo:', error);
+    }
+};
+
+// Exportar las funciones corregidas
+window.getUserProfile = getUserProfile;
+window.getUserStatistics = getUserStatistics;
+window.createDemoUser = createDemoUser;
+
+// Auto-inicializar datos demo si no existen
+window.addEventListener('firebaseReady', async () => {
+    console.log('🔥 Firebase listo, verificando datos demo...');
+    
+    // Solo crear datos demo si estamos en modo simulado
+    const simulatedUser = localStorage.getItem('simulatedUser');
+    if (simulatedUser) {
+        await window.initializeDemoData();
+    }
+});
+
+console.log('🔧 Funciones de perfil corregidas y exportadas');
