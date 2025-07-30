@@ -86,6 +86,78 @@
     }
 }
 
+/* Mejorar visualización de banderas */
+.iti__flag-container {
+    width: 52px !important;
+    border-right: 1px solid var(--border-color) !important;
+}
+
+.iti__selected-flag {
+    padding: 8px 12px !important;
+    background: var(--input-bg) !important;
+    border-radius: 8px 0 0 8px !important;
+}
+
+.iti__flag {
+    width: 24px !important;
+    height: 18px !important;
+    background-size: contain !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    border-radius: 2px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+
+.iti__arrow {
+    border-left: 4px solid transparent !important;
+    border-right: 4px solid transparent !important;
+    border-top: 4px solid var(--secondary-gray) !important;
+    margin-left: 6px !important;
+}
+
+.iti__country-list {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 24px var(--shadow-dark) !important;
+    max-height: 200px !important;
+    overflow-y: auto !important;
+}
+
+.iti__country {
+    padding: 8px 12px !important;
+    color: var(--text-white) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+}
+
+.iti__country:hover {
+    background: var(--input-bg) !important;
+}
+
+.iti__country.iti__highlight {
+    background: var(--primary-orange) !important;
+}
+
+.iti__dial-code {
+    color: var(--secondary-gray) !important;
+}
+
+/* Ajustar el input para que se vea mejor con la bandera */
+#client-phone {
+    padding-left: 60px !important;
+    border-radius: 0 8px 8px 0 !important;
+}
+
+.iti {
+    width: 100% !important;
+    display: flex !important;
+}
+
+.iti__tel-input {
+    border-radius: 0 8px 8px 0 !important;
+    border-left: none !important;
+}
+
 /* Ocultar banderas cuando se usa email */
 .country-flag.hidden {
     display: none !important;
@@ -191,7 +263,21 @@
             phoneInput = window.intlTelInput(phoneField, {
                 initialCountry: 'co',
                 preferredCountries: ['co', 'us', 'mx'],
-                utilsScript: 'https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js'
+                utilsScript: 'https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/js/utils.js',
+                formatOnDisplay: true,
+                nationalMode: false,
+                autoPlaceholder: "aggressive"
+            });
+            
+            // Establecer valor por defecto
+            phoneField.value = '+57 ';
+            
+            // Listener para cambios de país
+            phoneField.addEventListener('countrychange', function() {
+                const countryData = phoneInput.getSelectedCountryData();
+                const dialCode = countryData.dialCode;
+                phoneField.value = `+${dialCode} `;
+                phoneField.focus();
             });
         }
 
@@ -220,38 +306,34 @@
             const emailField = document.getElementById('client-email');
             const toggleBtn = document.querySelector('.toggle-input');
             
-            // Obtener el contenedor del input de teléfono para manejar la bandera del país
-            const phoneContainer = phoneField.parentElement;
-            const countryFlag = phoneContainer.querySelector('.iti__flag-container');
+            // Obtener el contenedor completo de intl-tel-input
+            const phoneContainer = phoneField.closest('.iti');
             
             if (isUsingEmail) {
-                phoneField.style.display = 'none';
+                // Ocultar todo el contenedor del teléfono (incluyendo bandera)
+                if (phoneContainer) {
+                    phoneContainer.style.display = 'none';
+                } else {
+                    phoneField.style.display = 'none';
+                }
                 emailField.style.display = 'block';
                 toggleBtn.textContent = 'Usar Teléfono';
-                
-                // Ocultar bandera del país
-                if (countryFlag) {
-                    countryFlag.style.display = 'none';
-                }
-                
-                // Limpiar valor del teléfono
-                phoneField.value = '';
+                emailField.value = '';
                 
             } else {
-                phoneField.style.display = 'block';
+                // Mostrar todo el contenedor del teléfono
+                if (phoneContainer) {
+                    phoneContainer.style.display = 'flex';
+                } else {
+                    phoneField.style.display = 'block';
+                }
                 emailField.style.display = 'none';
                 toggleBtn.textContent = 'Usar Email';
-                
-                // Mostrar bandera del país
-                if (countryFlag) {
-                    countryFlag.style.display = 'block';
-                }
-                
-                // Limpiar valor del email
-                emailField.value = '';
+                phoneField.value = '+57 ';
+                phoneField.focus();
             }
             
-            // Limpiar mensajes de error previos
+            // Resto del código existente...
             const existingMessages = document.querySelectorAll('.error-message, .success-message');
             existingMessages.forEach(msg => {
                 if (msg.parentNode) {
@@ -259,12 +341,10 @@
                 }
             });
             
-            // Resetear sección de verificación
             const verificationSection = document.getElementById('verification-section');
             verificationSection.style.display = 'none';
             document.getElementById('verification-code').value = '';
             
-            // Resetear botón de login
             const loginBtn = document.getElementById('login-btn');
             loginBtn.textContent = 'Continuar';
             loginBtn.disabled = false;
