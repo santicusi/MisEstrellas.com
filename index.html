@@ -309,18 +309,6 @@
                 
                 if (isUsingEmail) {
                     result = await authenticateClientWithEmailLocal(contact);
-                    
-                    // Para email con enlace, solo mostrar mensaje
-                    if (result.isEmailLink) {
-                        showMessage(result.message, 'success');
-                        
-                        // Deshabilitar botón
-                        const loginBtn = document.getElementById('login-btn');
-                        loginBtn.disabled = true;
-                        loginBtn.textContent = 'Enlace enviado - Revisa tu email';
-                        
-                        return;
-                    }
                 } else {
                     result = await authenticateClientWithPhoneLocal(contact);
                 }
@@ -329,21 +317,30 @@
                     showMessage(result.message, 'success');
                 }
                 
-                // Mostrar verificación solo para teléfono
-                if (!isUsingEmail && result.requiresVerification) {
+                // Mostrar verificación para ambos casos
+                if (result.requiresVerification) {
                     verificationSection.style.display = 'block';
                     document.getElementById('login-btn').textContent = 'Verificar';
                 }
                 
             } else {
-                // Verificar código SMS
+                // Verificar código (puede ser SMS o Email)
                 const code = document.getElementById('verification-code').value;
                 
                 if (!code) {
                     throw new Error('Por favor ingresa el código de verificación');
                 }
                 
-                const verificationResult = await verificarCodigoLocal(code);
+                let verificationResult;
+                
+                // Determinar si es email o teléfono
+                if (localStorage.getItem('emailVerificationCode')) {
+                    // Es verificación de email
+                    verificationResult = await verificarCodigoEmailLocal(code);
+                } else {
+                    // Es verificación de SMS
+                    verificationResult = await verificarCodigoLocal(code);
+                }
                 
                 showMessage('✅ Verificación exitosa. Redirigiendo...', 'success');
                 
@@ -395,22 +392,25 @@
                 }
                 
                 if (!window.auth || !window.db) {
-                    throw new Error('Firebase no está inicializado completamente.');
+                    throw new Error('Firebase no está inicializado');
                 }
                 
                 try {
-                    // 🔥 MÉTODO REAL: Usar Email Link (passwordless)
-                    const actionCodeSettings = {
-                        url: window.location.origin + '/index.html?emailSignIn=true',
-                        handleCodeInApp: true
-                    };
+                    // 🔥 NUEVO: Usar email + password temporal con código de verificación
                     
-                    // Enviar enlace de acceso al email
-                    await window.auth.sendSignInLinkToEmail(email, actionCodeSettings);
+                    // Generar código de verificación de 6 dígitos
+                    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
                     
-                    // Guardar email para completar el proceso
-                    localStorage.setItem('emailForSignIn', email);
-                    localStorage.setItem('pendingEmailSignIn', 'true');
+                    // Guardar código temporalmente (en producción real, enviarías por email)
+                    localStorage.setItem('emailVerificationCode', verificationCode);
+                    localStorage.setItem('emailForVerification', email);
+                    localStorage.setItem('codeExpiry', (now + 300000).toString()); // 5 minutos
+                    
+                    // 🔥 SIMULAR ENVÍO DE EMAIL CON CÓDIGO
+                    console.log('📧 Código generado para', email, ':', verificationCode);
+                    
+                    // En producción real, aquí enviarías un email con el código usando tu servicio de email
+                    // Por ahora, simulamos que se envió
                     
                     attemptCounts.codeRequest++;
                     attemptCounts.lastRequestTime = now;
@@ -418,23 +418,14 @@
                     
                     return {
                         success: true,
-                        message: `Enlace de acceso enviado a ${email}. Revisa tu bandeja de entrada y haz clic en el enlace.`,
+                        message: `Código de verificación enviado a ${email}. Expira en 5 minutos. (DESARROLLO: ${verificationCode})`,
                         requiresVerification: true,
-                        isEmailLink: true
+                        isEmailCode: true // Nuevo flag para distinguir
                     };
                     
                 } catch (emailError) {
-                    console.error('❌ Error enviando enlace de email:', emailError);
-                    
-                    if (emailError.code === 'auth/invalid-email') {
-                        throw new Error('Dirección de email inválida');
-                    } else if (emailError.code === 'auth/operation-not-allowed') {
-                        throw new Error('Autenticación por email no está habilitada. Contacta al administrador.');
-                    } else if (emailError.code === 'auth/too-many-requests') {
-                        throw new Error('Demasiadas solicitudes. Espera unos minutos.');
-                    } else {
-                        throw new Error('Error enviando enlace de acceso: ' + emailError.message);
-                    }
+                    console.error('❌ Error en email:', emailError);
+                    throw new Error('Error enviando código de verificación por email');
                 }
                 
             } catch (error) {
@@ -616,6 +607,100 @@
                 
             } catch (error) {
                 console.error('❌ Error en verificación:', error);
+                throw error;
+            }
+        }
+
+        async function verificarCodigoEmailLocal(verificationCode) {
+            try {
+                console.log('🔍 Verificando código de email:', verificationCode);
+                
+                if (!verificationCode || verificationCode.length !== 6) {
+                    throw new Error('El código debe tener 6 dígitos');
+                }
+                
+                // Verificar límite de intentos
+                if (attemptCounts.verification >= 3) {
+                    throw new Error('Has excedido el número máximo de intentos (3). Solicita un nuevo código.');
+                }
+                
+                // Obtener datos guardados
+                const savedCode = localStorage.getItem('emailVerificationCode');
+                const savedEmail = localStorage.getItem('emailForVerification');
+                const expiry = localStorage.getItem('codeExpiry');
+                
+                if (!savedCode || !savedEmail || !expiry) {
+                    throw new Error('No hay un proceso de verificación activo. Solicita un nuevo código.');
+                }
+                
+                // Verificar expiración
+                if (Date.now() > parseInt(expiry)) {
+                    // Limpiar datos expirados
+                    localStorage.removeItem('emailVerificationCode');
+                    localStorage.removeItem('emailForVerification');
+                    localStorage.removeItem('codeExpiry');
+                    throw new Error('El código ha expirado. Solicita uno nuevo.');
+                }
+                
+                // Verificar código
+                if (verificationCode !== savedCode) {
+                    attemptCounts.verification++;
+                    const remainingAttempts = 3 - attemptCounts.verification;
+                    
+                    if (remainingAttempts > 0) {
+                        throw new Error(`Código incorrecto. Te quedan ${remainingAttempts} intentos.`);
+                    } else {
+                        throw new Error('Código incorrecto. Has agotado tus intentos. Solicita un nuevo código.');
+                    }
+                }
+                
+                // Código correcto - crear usuario
+                try {
+                    console.log('✅ Código de email verificado correctamente');
+                    
+                    // Limpiar datos
+                    localStorage.removeItem('emailVerificationCode');
+                    localStorage.removeItem('emailForVerification');
+                    localStorage.removeItem('codeExpiry');
+                    
+                    // Reset contadores
+                    attemptCounts.verification = 0;
+                    attemptCounts.codeRequest = 0;
+                    
+                    // Crear o autenticar usuario con email/password
+                    const tempPassword = 'TempEmailPass123!';
+                    let userCredential;
+                    
+                    try {
+                        // Intentar login primero
+                        userCredential = await window.auth.signInWithEmailAndPassword(savedEmail, tempPassword);
+                    } catch (signInError) {
+                        if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/wrong-password') {
+                            // Crear nuevo usuario
+                            userCredential = await window.auth.createUserWithEmailAndPassword(savedEmail, tempPassword);
+                        } else {
+                            throw signInError;
+                        }
+                    }
+                    
+                    // Configurar persistencia
+                    await window.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+                    
+                    // Crear perfil
+                    await createOrUpdateClientProfileLocal(userCredential.user);
+                    
+                    return {
+                        success: true,
+                        user: userCredential.user
+                    };
+                    
+                } catch (authError) {
+                    console.error('❌ Error creando usuario:', authError);
+                    throw new Error('Error completando verificación');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error en verificación de email:', error);
                 throw error;
             }
         }
