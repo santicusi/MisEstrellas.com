@@ -469,29 +469,31 @@
                 }
                 
                 try {
-                    // 🔥 SMS REAL con reCAPTCHA
                     console.log('📤 Enviando SMS REAL a:', formattedPhone);
                     
-                    // Crear contenedor para reCAPTCHA si no existe
-                    let recaptchaContainer = document.getElementById('recaptcha-container');
-                    if (!recaptchaContainer) {
-                        recaptchaContainer = document.createElement('div');
-                        recaptchaContainer.id = 'recaptcha-container';
-                        recaptchaContainer.style.display = 'none';
-                        document.body.appendChild(recaptchaContainer);
-                    }
-                    
-                    // Limpiar reCAPTCHA anterior
+                    // 🔥 LIMPIAR RECAPTCHA COMPLETAMENTE ANTES DE CREAR UNO NUEVO
                     if (window.recaptchaVerifier) {
                         try {
-                            window.recaptchaVerifier.clear();
+                            await window.recaptchaVerifier.clear();
+                            window.recaptchaVerifier = null;
                         } catch (e) {
-                            console.log('reCAPTCHA ya limpio');
+                            console.log('Limpiando reCAPTCHA anterior');
                         }
-                        window.recaptchaVerifier = null;
                     }
                     
-                    // Crear nuevo reCAPTCHA invisible
+                    // Limpiar contenedor anterior
+                    let recaptchaContainer = document.getElementById('recaptcha-container');
+                    if (recaptchaContainer) {
+                        recaptchaContainer.remove();
+                    }
+                    
+                    // Crear nuevo contenedor limpio
+                    recaptchaContainer = document.createElement('div');
+                    recaptchaContainer.id = 'recaptcha-container';
+                    recaptchaContainer.style.display = 'none';
+                    document.body.appendChild(recaptchaContainer);
+                    
+                    // Crear nuevo reCAPTCHA
                     window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
                         'size': 'invisible',
                         'callback': function(response) {
@@ -502,7 +504,7 @@
                         }
                     });
                     
-                    // 🔥 ENVIAR SMS REAL
+                    // Enviar SMS REAL
                     window.confirmationResult = await window.auth.signInWithPhoneNumber(
                         formattedPhone, 
                         window.recaptchaVerifier
@@ -523,23 +525,20 @@
                 } catch (smsError) {
                     console.error('❌ Error enviando SMS:', smsError);
                     
-                    // Limpiar reCAPTCHA en caso de error
+                    // Limpiar en caso de error
                     if (window.recaptchaVerifier) {
                         try {
-                            window.recaptchaVerifier.clear();
+                            await window.recaptchaVerifier.clear();
+                            window.recaptchaVerifier = null;
                         } catch (e) {}
-                        window.recaptchaVerifier = null;
                     }
                     
-                    // Manejar errores específicos
                     if (smsError.code === 'auth/too-many-requests') {
-                        throw new Error('Demasiadas solicitudes. Espera unos minutos.');
+                        throw new Error('Demasiadas solicitudes de SMS. Espera 1 hora.');
                     } else if (smsError.code === 'auth/invalid-phone-number') {
-                        throw new Error('Número de teléfono inválido. Verifica el formato.');
+                        throw new Error('Número de teléfono inválido. Verifica el formato (+57...).');
                     } else if (smsError.code === 'auth/quota-exceeded') {
-                        throw new Error('Cuota de SMS excedida. Contacta al administrador.');
-                    } else if (smsError.code === 'auth/billing-not-enabled') {
-                        throw new Error('Servicio de SMS no disponible temporalmente. Usa email.');
+                        throw new Error('Cuota de SMS excedida.');
                     } else {
                         throw new Error('Error enviando SMS: ' + smsError.message);
                     }
@@ -860,6 +859,34 @@
 
         function showError(message) {
             alert(message);
+        }
+
+        function showMessage(message, type = 'info') {
+            // Remover mensajes anteriores
+            const existingMessages = document.querySelectorAll('.temp-message');
+            existingMessages.forEach(msg => msg.remove());
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'temp-message';
+            messageDiv.style.cssText = `
+                background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#F44336' : '#2196F3'};
+                color: white;
+                padding: 12px;
+                border-radius: 8px;
+                margin: 10px 0;
+                text-align: center;
+                font-size: 14px;
+            `;
+            messageDiv.textContent = message;
+            
+            const loginBtn = document.getElementById('login-btn');
+            loginBtn.parentNode.insertBefore(messageDiv, loginBtn);
+            
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.remove();
+                }
+            }, 5000);
         }
 
         // 🔥 REEMPLAZAR POR ESTA FUNCIÓN MEJORADA:
