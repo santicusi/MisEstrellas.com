@@ -48,6 +48,48 @@
     --shadow-dark: rgba(0, 0, 0, 0.3);
     --shadow-orange: rgba(255, 140, 66, 0.2);
 }
+
+/* Responsive para language toggle */
+.language-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+}
+
+@media (max-width: 768px) {
+    .language-toggle {
+        top: 15px;
+        right: 15px;
+        gap: 6px;
+    }
+    
+    .lang-btn {
+        padding: 6px 12px !important;
+        font-size: 12px !important;
+        min-width: auto !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .language-toggle {
+        top: 10px;
+        right: 10px;
+        gap: 4px;
+    }
+    
+    .lang-btn {
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+    }
+}
+
+/* Ocultar banderas cuando se usa email */
+.country-flag.hidden {
+    display: none !important;
+}
 </style>
 
 <body>
@@ -178,15 +220,54 @@
             const emailField = document.getElementById('client-email');
             const toggleBtn = document.querySelector('.toggle-input');
             
+            // Obtener el contenedor del input de teléfono para manejar la bandera del país
+            const phoneContainer = phoneField.parentElement;
+            const countryFlag = phoneContainer.querySelector('.iti__flag-container');
+            
             if (isUsingEmail) {
                 phoneField.style.display = 'none';
                 emailField.style.display = 'block';
                 toggleBtn.textContent = 'Usar Teléfono';
+                
+                // Ocultar bandera del país
+                if (countryFlag) {
+                    countryFlag.style.display = 'none';
+                }
+                
+                // Limpiar valor del teléfono
+                phoneField.value = '';
+                
             } else {
                 phoneField.style.display = 'block';
                 emailField.style.display = 'none';
                 toggleBtn.textContent = 'Usar Email';
+                
+                // Mostrar bandera del país
+                if (countryFlag) {
+                    countryFlag.style.display = 'block';
+                }
+                
+                // Limpiar valor del email
+                emailField.value = '';
             }
+            
+            // Limpiar mensajes de error previos
+            const existingMessages = document.querySelectorAll('.error-message, .success-message');
+            existingMessages.forEach(msg => {
+                if (msg.parentNode) {
+                    msg.parentNode.removeChild(msg);
+                }
+            });
+            
+            // Resetear sección de verificación
+            const verificationSection = document.getElementById('verification-section');
+            verificationSection.style.display = 'none';
+            document.getElementById('verification-code').value = '';
+            
+            // Resetear botón de login
+            const loginBtn = document.getElementById('login-btn');
+            loginBtn.textContent = 'Continuar';
+            loginBtn.disabled = false;
         }
 
         function setupEventListeners() {
@@ -216,7 +297,6 @@
             const verificationSection = document.getElementById('verification-section');
             
             if (verificationSection.style.display === 'none') {
-                // Primer paso: enviar código de verificación
                 const contact = isUsingEmail ? 
                     document.getElementById('client-email').value :
                     phoneInput.getNumber();
@@ -230,24 +310,12 @@
                 if (isUsingEmail) {
                     result = await authenticateClientWithEmailLocal(contact);
                     
-                    // Para email, no mostrar sección de verificación, solo informar
+                    // Para email con enlace, solo mostrar mensaje
                     if (result.isEmailLink) {
-                        const messageDiv = document.createElement('div');
-                        messageDiv.style.cssText = `
-                            background: #4CAF50;
-                            color: white;
-                            padding: 12px;
-                            border-radius: 8px;
-                            margin: 10px 0;
-                            text-align: center;
-                            font-size: 14px;
-                        `;
-                        messageDiv.textContent = result.message + ' Haz clic en el enlace para acceder.';
+                        showMessage(result.message, 'success');
                         
+                        // Deshabilitar botón
                         const loginBtn = document.getElementById('login-btn');
-                        loginBtn.parentNode.insertBefore(messageDiv, loginBtn);
-                        
-                        // Deshabilitar el botón temporalmente
                         loginBtn.disabled = true;
                         loginBtn.textContent = 'Enlace enviado - Revisa tu email';
                         
@@ -257,39 +325,18 @@
                     result = await authenticateClientWithPhoneLocal(contact);
                 }
                 
-                // Mostrar mensaje de éxito
                 if (result && result.message) {
-                    const messageDiv = document.createElement('div');
-                    messageDiv.style.cssText = `
-                        background: #4CAF50;
-                        color: white;
-                        padding: 12px;
-                        border-radius: 8px;
-                        margin: 10px 0;
-                        text-align: center;
-                        font-size: 14px;
-                    `;
-                    messageDiv.textContent = result.message;
-                    
-                    const loginBtn = document.getElementById('login-btn');
-                    loginBtn.parentNode.insertBefore(messageDiv, loginBtn);
-                    
-                    // Remover mensaje después de 5 segundos
-                    setTimeout(() => {
-                        if (messageDiv.parentNode) {
-                            messageDiv.parentNode.removeChild(messageDiv);
-                        }
-                    }, 5000);
+                    showMessage(result.message, 'success');
                 }
                 
-                // Mostrar sección de verificación solo para teléfono
-                if (!isUsingEmail) {
+                // Mostrar verificación solo para teléfono
+                if (!isUsingEmail && result.requiresVerification) {
                     verificationSection.style.display = 'block';
                     document.getElementById('login-btn').textContent = 'Verificar';
                 }
                 
             } else {
-                // Segundo paso: verificar código (solo para teléfono)
+                // Verificar código SMS
                 const code = document.getElementById('verification-code').value;
                 
                 if (!code) {
@@ -298,27 +345,9 @@
                 
                 const verificationResult = await verificarCodigoLocal(code);
                 
-                console.log('✅ Código verificado exitosamente:', verificationResult);
+                showMessage('✅ Verificación exitosa. Redirigiendo...', 'success');
                 
-                // Mostrar mensaje de éxito
-                const successDiv = document.createElement('div');
-                successDiv.style.cssText = `
-                    background: #4CAF50;
-                    color: white;
-                    padding: 12px;
-                    border-radius: 8px;
-                    margin: 10px 0;
-                    text-align: center;
-                    font-size: 14px;
-                `;
-                successDiv.textContent = '✅ Verificación exitosa. Redirigiendo...';
-                
-                const loginBtn = document.getElementById('login-btn');
-                loginBtn.parentNode.insertBefore(successDiv, loginBtn);
-                
-                // Redirigir después de un momento
                 setTimeout(() => {
-                    console.log('🔄 Redirigiendo a dashboard...');
                     window.location.href = 'cliente/dashboard.html';
                 }, 1500);
             }
@@ -356,60 +385,40 @@
                 const now = Date.now();
                 const timeSinceLastRequest = now - attemptCounts.lastRequestTime;
                 
-                if (attemptCounts.codeRequest >= 2 && timeSinceLastRequest < 300000) { // 5 minutos
+                if (attemptCounts.codeRequest >= 2 && timeSinceLastRequest < 300000) {
                     const remainingTime = Math.ceil((300000 - timeSinceLastRequest) / 60000);
-                    throw new Error(`Has alcanzado el límite de solicitudes. Espera ${remainingTime} minutos antes de solicitar otro código.`);
+                    throw new Error(`Has alcanzado el límite de solicitudes. Espera ${remainingTime} minutos.`);
                 }
                 
-                // Reset contador si han pasado 5 minutos
                 if (timeSinceLastRequest >= 300000) {
                     attemptCounts.codeRequest = 0;
                 }
                 
-                // Verificar que Firebase esté disponible
                 if (!window.auth || !window.db) {
-                    throw new Error('Firebase no está inicializado');
+                    throw new Error('Firebase no está inicializado completamente.');
                 }
                 
                 try {
-                    // Verificar si el usuario existe
-                    const signInMethods = await window.auth.fetchSignInMethodsForEmail(email);
-                    
-                    // Configurar URL de acción para el enlace de email
+                    // 🔥 MÉTODO REAL: Usar Email Link (passwordless)
                     const actionCodeSettings = {
                         url: window.location.origin + '/index.html?emailSignIn=true',
                         handleCodeInApp: true
                     };
                     
-                    if (signInMethods.length === 0) {
-                        // Usuario nuevo - enviar enlace de registro
-                        console.log('👤 Nuevo usuario, enviando enlace de registro');
-                        
-                        await window.auth.sendSignInLinkToEmail(email, actionCodeSettings);
-                        
-                        // Guardar email para completar el proceso
-                        localStorage.setItem('emailForSignIn', email);
-                        localStorage.setItem('pendingEmailSignIn', 'true');
-                        
-                    } else {
-                        // Usuario existente - enviar enlace de acceso
-                        console.log('👤 Usuario existente, enviando enlace de acceso');
-                        
-                        await window.auth.sendSignInLinkToEmail(email, actionCodeSettings);
-                        
-                        // Guardar email para completar el proceso
-                        localStorage.setItem('emailForSignIn', email);
-                        localStorage.setItem('pendingEmailSignIn', 'true');
-                    }
+                    // Enviar enlace de acceso al email
+                    await window.auth.sendSignInLinkToEmail(email, actionCodeSettings);
                     
-                    // Incrementar contador de solicitudes
+                    // Guardar email para completar el proceso
+                    localStorage.setItem('emailForSignIn', email);
+                    localStorage.setItem('pendingEmailSignIn', 'true');
+                    
                     attemptCounts.codeRequest++;
                     attemptCounts.lastRequestTime = now;
-                    attemptCounts.verification = 0; // Reset intentos de verificación
+                    attemptCounts.verification = 0;
                     
                     return {
                         success: true,
-                        message: `Enlace de acceso enviado a ${email}. Revisa tu bandeja de entrada.`,
+                        message: `Enlace de acceso enviado a ${email}. Revisa tu bandeja de entrada y haz clic en el enlace.`,
                         requiresVerification: true,
                         isEmailLink: true
                     };
@@ -419,10 +428,12 @@
                     
                     if (emailError.code === 'auth/invalid-email') {
                         throw new Error('Dirección de email inválida');
+                    } else if (emailError.code === 'auth/operation-not-allowed') {
+                        throw new Error('Autenticación por email no está habilitada. Contacta al administrador.');
                     } else if (emailError.code === 'auth/too-many-requests') {
-                        throw new Error('Demasiadas solicitudes. Espera unos minutos antes de intentar nuevamente.');
+                        throw new Error('Demasiadas solicitudes. Espera unos minutos.');
                     } else {
-                        throw new Error('Error enviando enlace de acceso. Intenta nuevamente.');
+                        throw new Error('Error enviando enlace de acceso: ' + emailError.message);
                     }
                 }
                 
@@ -441,30 +452,27 @@
                 const now = Date.now();
                 const timeSinceLastRequest = now - attemptCounts.lastRequestTime;
                 
-                if (attemptCounts.codeRequest >= 2 && timeSinceLastRequest < 300000) { // 5 minutos
+                if (attemptCounts.codeRequest >= 2 && timeSinceLastRequest < 300000) {
                     const remainingTime = Math.ceil((300000 - timeSinceLastRequest) / 60000);
-                    throw new Error(`Has alcanzado el límite de solicitudes. Espera ${remainingTime} minutos antes de solicitar otro código.`);
+                    throw new Error(`Has alcanzado el límite de solicitudes. Espera ${remainingTime} minutos.`);
                 }
                 
-                // Reset contador si han pasado 5 minutos
                 if (timeSinceLastRequest >= 300000) {
                     attemptCounts.codeRequest = 0;
                 }
                 
-                // Format phone number
                 const formattedPhone = formatPhoneNumber(phoneNumber);
                 console.log('📱 Teléfono formateado:', formattedPhone);
                 
-                // Verificar que Firebase esté disponible
                 if (!window.auth) {
                     throw new Error('Firebase Auth no está inicializado');
                 }
                 
                 try {
-                    // 🔥 MÉTODO REAL SIN reCAPTCHA - Usar signInWithPhoneNumber directamente
-                    console.log('📤 Enviando SMS real a:', formattedPhone);
+                    // 🔥 SMS REAL con reCAPTCHA
+                    console.log('📤 Enviando SMS REAL a:', formattedPhone);
                     
-                    // Crear un contenedor invisible para reCAPTCHA si no existe
+                    // Crear contenedor para reCAPTCHA si no existe
                     let recaptchaContainer = document.getElementById('recaptcha-container');
                     if (!recaptchaContainer) {
                         recaptchaContainer = document.createElement('div');
@@ -473,7 +481,7 @@
                         document.body.appendChild(recaptchaContainer);
                     }
                     
-                    // Limpiar reCAPTCHA anterior si existe
+                    // Limpiar reCAPTCHA anterior
                     if (window.recaptchaVerifier) {
                         try {
                             window.recaptchaVerifier.clear();
@@ -487,25 +495,24 @@
                     window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
                         'size': 'invisible',
                         'callback': function(response) {
-                            console.log('✅ reCAPTCHA verificado automáticamente');
+                            console.log('✅ reCAPTCHA verificado');
                         },
                         'expired-callback': function() {
                             console.log('⚠️ reCAPTCHA expirado');
                         }
                     });
                     
-                    // Enviar SMS usando Firebase Auth
+                    // 🔥 ENVIAR SMS REAL
                     window.confirmationResult = await window.auth.signInWithPhoneNumber(
                         formattedPhone, 
                         window.recaptchaVerifier
                     );
                     
-                    // Incrementar contador de solicitudes
                     attemptCounts.codeRequest++;
                     attemptCounts.lastRequestTime = now;
-                    attemptCounts.verification = 0; // Reset intentos de verificación
+                    attemptCounts.verification = 0;
                     
-                    console.log('✅ SMS enviado exitosamente a:', formattedPhone);
+                    console.log('✅ SMS REAL enviado a:', formattedPhone);
                     
                     return {
                         success: true,
@@ -526,13 +533,15 @@
                     
                     // Manejar errores específicos
                     if (smsError.code === 'auth/too-many-requests') {
-                        throw new Error('Demasiadas solicitudes. Espera unos minutos antes de intentar nuevamente.');
+                        throw new Error('Demasiadas solicitudes. Espera unos minutos.');
                     } else if (smsError.code === 'auth/invalid-phone-number') {
                         throw new Error('Número de teléfono inválido. Verifica el formato.');
                     } else if (smsError.code === 'auth/quota-exceeded') {
-                        throw new Error('Cuota de SMS excedida. Intenta más tarde.');
+                        throw new Error('Cuota de SMS excedida. Contacta al administrador.');
+                    } else if (smsError.code === 'auth/billing-not-enabled') {
+                        throw new Error('Servicio de SMS no disponible temporalmente. Usa email.');
                     } else {
-                        throw new Error('Error enviando código SMS. Intenta nuevamente.');
+                        throw new Error('Error enviando SMS: ' + smsError.message);
                     }
                 }
                 
@@ -622,40 +631,34 @@
                         throw new Error('No se encontró el email asociado. Solicita un nuevo enlace.');
                     }
                     
-                    // Completar el proceso de autenticación
+                    // Completar autenticación
                     const result = await window.auth.signInWithEmailLink(email, window.location.href);
                     
-                    // Limpiar almacenamiento local
+                    // Limpiar almacenamiento
                     localStorage.removeItem('emailForSignIn');
                     localStorage.removeItem('pendingEmailSignIn');
                     
-                    // Crear o actualizar perfil
+                    // Crear perfil
                     await createOrUpdateClientProfileLocal(result.user);
                     
-                    // Configurar persistencia de sesión
+                    // Configurar persistencia
                     await window.auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
                     
                     console.log('✅ Autenticación por email completada');
                     
-                    // Redirigir al dashboard
+                    // Redirigir
                     window.location.href = 'cliente/dashboard.html';
                     
-                    return {
-                        success: true,
-                        user: result.user
-                    };
+                    return { success: true, user: result.user };
                 }
                 
                 return null;
                 
             } catch (error) {
-                console.error('❌ Error verificando enlace de email:', error);
-                
-                // Limpiar almacenamiento en caso de error
+                console.error('❌ Error verificando enlace:', error);
                 localStorage.removeItem('emailForSignIn');
                 localStorage.removeItem('pendingEmailSignIn');
-                
-                throw new Error('Enlace de email inválido o expirado. Solicita uno nuevo.');
+                throw new Error('Enlace inválido o expirado. Solicita uno nuevo.');
             }
         }
 
@@ -728,18 +731,19 @@
 
         // 🔥 FUNCIÓN PARA INICIALIZAR VERIFICACIÓN DE EMAIL AL CARGAR LA PÁGINA (NUEVA)
         document.addEventListener('DOMContentLoaded', async function() {
-            // Verificar si venimos de un enlace de email
+            // Verificar enlace de email al cargar
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('emailSignIn') === 'true' || window.auth.isSignInWithEmailLink(window.location.href)) {
+            if (urlParams.get('emailSignIn') === 'true' || 
+                (window.auth && window.auth.isSignInWithEmailLink && window.auth.isSignInWithEmailLink(window.location.href))) {
                 try {
                     await verificarEnlaceEmail();
                 } catch (error) {
-                    console.error('Error procesando enlace de email:', error);
-                    showError(error.message);
+                    console.error('Error procesando enlace:', error);
+                    showMessage(error.message, 'error');
                 }
             }
             
-            // Resto de la inicialización...
+            // Resto de inicialización
             initializePhoneInput();
             updateTexts();
             setupEventListeners();
