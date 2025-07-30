@@ -228,18 +228,24 @@
     <script src="../js/auth.js"></script>
 
     <script>
+        // Inicializar datos demo al cargar
+        window.addEventListener('firebaseReady', async () => {
+            if (window.initializeDemoData && localStorage.getItem('simulatedUser')) {
+                await window.initializeDemoData();
+            }
+        });
+    </script>
+
+    <script>
         let currentUser = null;
         let personalQRCode = null;
         let isEditing = false;
-
-        // CORREGIDO: ID consistente del usuario simulado
-        const SIMULATED_USER_ID = 'XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2';
 
         document.addEventListener("DOMContentLoaded", function () {
             console.log('🚀 Inicializando perfil...');
             
             // Esperar a que Firebase esté listo
-            if (window.auth && window.db) {
+            if (window.auth) {
                 initializeProfile();
             } else {
                 window.addEventListener('firebaseReady', initializeProfile);
@@ -292,230 +298,56 @@
             });
         }
 
-        // CORREGIDO: Función para cargar perfil real desde Firebase
         async function loadUserProfile() {
             try {
                 console.log('📊 Cargando perfil del usuario...');
                 
                 let userProfile;
-                let userId = currentUser.uid;
                 
-                // Si es usuario simulado, usar ID fijo
+                // Si es usuario simulado, obtener de Firestore
                 if (window.simulatedUser) {
-                    userId = SIMULATED_USER_ID;
-                    console.log('🧪 Usando ID de usuario simulado:', userId);
-                }
-                
-                // Obtener datos reales desde Firestore
-                if (window.db) {
-                    console.log('🔍 Buscando usuario en Firebase:', userId);
-                    const userDoc = await window.db.collection('users').doc(userId).get();
-                    
+                    const userDoc = await window.db.collection('users').doc('XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2').get();
                     if (userDoc.exists) {
                         userProfile = userDoc.data();
-                        console.log('✅ Perfil encontrado en Firebase:', userProfile);
-                    } else {
-                        console.log('❌ Usuario no encontrado en Firebase, creando perfil básico...');
-                        
-                        // Crear perfil básico si no existe
-                        const basicProfile = {
-                            name: window.simulatedUser ? 'Usuario Demo' : (currentUser.displayName || 'Usuario'),
-                            email: window.simulatedUser ? 'demo@example.com' : currentUser.email,
-                            phoneNumber: window.simulatedUser ? '+57 300 123 4567' : (currentUser.phoneNumber || ''),
-                            totalPoints: 0,
-                            totalEarned: 0,
-                            totalVisits: 0,
-                            joinedBusinesses: [],
-                            userType: 'client',
-                            isActive: true,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                        };
-                        
-                        await window.db.collection('users').doc(userId).set(basicProfile);
-                        userProfile = basicProfile;
-                        console.log('✅ Perfil básico creado');
                     }
                 } else {
-                    console.warn('⚠️ Firestore no disponible, usando datos locales');
-                    userProfile = {
-                        name: 'Usuario Demo',
-                        email: 'demo@example.com',
-                        phoneNumber: '+57 300 123 4567'
-                    };
+                    // Para usuarios reales
+                    userProfile = await getUserProfile(currentUser.uid);
                 }
                 
-                // Actualizar la interfaz con los datos cargados
                 if (userProfile) {
-                    updateProfileUI(userProfile);
+                    document.getElementById('profile-name').textContent = userProfile.name || userProfile.displayName || 'Usuario';
+                    document.getElementById('profile-contact').textContent = userProfile.phoneNumber || userProfile.email || '';
+                    document.getElementById('user-name').value = userProfile.name || userProfile.displayName || '';
+                    document.getElementById('user-phone').value = userProfile.phoneNumber || '';
+                    document.getElementById('user-email').value = userProfile.email || '';
+                    
+                    if (userProfile.avatar) {
+                        document.getElementById('profile-image').src = userProfile.avatar;
+                    }
+                    
+                    if (userProfile.createdAt) {
+                        const date = userProfile.createdAt.toDate ? userProfile.createdAt.toDate() : new Date(userProfile.createdAt);
+                        const memberSince = date.toLocaleDateString('es-ES', {
+                            year: 'numeric',
+                            month: 'long'
+                        });
+                        document.getElementById('profile-member-since').textContent = `Miembro desde: ${memberSince}`;
+                    }
                 }
                 
             } catch (error) {
                 console.error('❌ Error loading user profile:', error);
-                showError('Error cargando perfil: ' + error.message);
-                
-                // Mostrar datos por defecto en caso de error
-                updateProfileUI({
-                    name: 'Usuario',
-                    email: 'email@ejemplo.com',
-                    phoneNumber: '+57 300 123 4567'
-                });
+                showError(error.message);
             }
         }
 
-        // NUEVA: Función para actualizar la UI con los datos del perfil
-        function updateProfileUI(userProfile) {
-            console.log('🎨 Actualizando UI con perfil:', userProfile);
-            
-            // Actualizar elementos de la interfaz
-            const profileName = document.getElementById('profile-name');
-            const profileContact = document.getElementById('profile-contact');
-            const userName = document.getElementById('user-name');
-            const userPhone = document.getElementById('user-phone');
-            const userEmail = document.getElementById('user-email');
-            const profileMemberSince = document.getElementById('profile-member-since');
-            
-            if (profileName) {
-                profileName.textContent = userProfile.name || userProfile.displayName || 'Usuario';
-            }
-            
-            if (profileContact) {
-                profileContact.textContent = userProfile.phoneNumber || userProfile.email || '';
-            }
-            
-            if (userName) {
-                userName.value = userProfile.name || userProfile.displayName || '';
-            }
-            
-            if (userPhone) {
-                userPhone.value = userProfile.phoneNumber || '';
-            }
-            
-            if (userEmail) {
-                userEmail.value = userProfile.email || '';
-            }
-            
-            // Actualizar imagen de perfil si existe
-            if (userProfile.avatar || userProfile.photoURL) {
-                const profileImage = document.getElementById('profile-image');
-                if (profileImage) {
-                    profileImage.src = userProfile.avatar || userProfile.photoURL;
-                }
-            }
-            
-            // Actualizar fecha de creación
-            if (profileMemberSince && userProfile.createdAt) {
-                try {
-                    const date = userProfile.createdAt.toDate ? userProfile.createdAt.toDate() : new Date(userProfile.createdAt);
-                    const memberSince = date.toLocaleDateString('es-ES', {
-                        year: 'numeric',
-                        month: 'long'
-                    });
-                    profileMemberSince.textContent = `Miembro desde: ${memberSince}`;
-                } catch (error) {
-                    console.warn('⚠️ Error procesando fecha de creación:', error);
-                    profileMemberSince.textContent = 'Miembro desde: 2024';
-                }
-            }
-            
-            console.log('✅ UI actualizada correctamente');
-        }
-
-        // CORREGIDO: Función para cargar estadísticas SIN índices complejos
-        async function loadUserStatistics() {
-            try {
-                console.log('📈 Cargando estadísticas del usuario...');
-                
-                let userId = currentUser.uid;
-                if (window.simulatedUser) {
-                    userId = SIMULATED_USER_ID;
-                }
-                
-                let stats = {
-                    totalStars: 0,
-                    visitedBusinesses: 0,
-                    thisMonthStars: 0
-                };
-                
-                if (window.db) {
-                    // Obtener datos del usuario desde Firebase
-                    const userDoc = await window.db.collection('users').doc(userId).get();
-                    if (userDoc.exists) {
-                        const userData = userDoc.data();
-                        stats.totalStars = userData.totalPoints || userData.totalEarned || 0;
-                        stats.visitedBusinesses = userData.joinedBusinesses ? userData.joinedBusinesses.length : 0;
-                    }
-                    
-                    // CORREGIDO: Calcular puntos del mes actual SIN orderBy complicado
-                    try {
-                        const monthlyTransactions = await window.db.collection('transactions')
-                            .where('userId', '==', userId)
-                            .get();
-                        
-                        const now = new Date();
-                        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-                        
-                        stats.thisMonthStars = 0;
-                        monthlyTransactions.forEach(doc => {
-                            const transaction = doc.data();
-                            const transactionDate = transaction.createdAt?.toDate() || new Date();
-                            
-                            if (transaction.type === 'earned' && transactionDate >= startOfMonth) {
-                                stats.thisMonthStars += transaction.points || 0;
-                            }
-                        });
-                    } catch (indexError) {
-                        console.warn('⚠️ Error calculando estadísticas mensuales:', indexError);
-                        stats.thisMonthStars = 0;
-                    }
-                }
-                
-                // Actualizar estadísticas en la UI si existen los elementos
-                updateStatsUI(stats);
-                
-            } catch (error) {
-                console.error('❌ Error loading statistics:', error);
-                // Mostrar estadísticas por defecto
-                updateStatsUI({
-                    totalStars: 0,
-                    visitedBusinesses: 0,
-                    thisMonthStars: 0
-                });
-            }
-        }
-
-        // NUEVA: Función para actualizar estadísticas en la UI
-        function updateStatsUI(stats) {
-            const totalStarsEl = document.getElementById('total-stars');
-            const visitedBusinessesEl = document.getElementById('visited-businesses');
-            const thisMonthStarsEl = document.getElementById('this-month-stars');
-            
-            if (totalStarsEl) {
-                totalStarsEl.textContent = stats.totalStars || '0';
-            }
-            
-            if (visitedBusinessesEl) {
-                visitedBusinessesEl.textContent = stats.visitedBusinesses || '0';
-            }
-            
-            if (thisMonthStarsEl) {
-                thisMonthStarsEl.textContent = stats.thisMonthStars || '0';
-            }
-            
-            console.log('📊 Estadísticas actualizadas:', stats);
-        }
-
-        // ================================
-        // FUNCIONES QR RESTAURADAS
-        // ================================
-
-        // Función para generar QR personal
         async function generatePersonalQR() {
             const qrCanvas = document.getElementById('personal-qr');
             const qrLoading = document.getElementById('qr-loading');
             const qrCodeText = document.getElementById('qr-code-text');
             
-            if (qrLoading) qrLoading.style.display = 'block';
+            qrLoading.style.display = 'block';
             
             try {
                 console.log('🎯 Generando QR personal...');
@@ -525,13 +357,11 @@
                 
                 console.log('📱 Datos del QR FIJO:', qrData);
                 
-                // Generar QR usando canvas
+                // Generar QR usando canvas nativo (sin dependencias externas)
                 await drawQRCodeToCanvas(qrCanvas, qrData.code);
                 
                 // Mostrar código legible
-                if (qrCodeText) {
-                    qrCodeText.textContent = qrData.displayCode;
-                }
+                qrCodeText.textContent = qrData.displayCode;
                 
                 // Guardar referencia
                 personalQRCode = qrData.code;
@@ -542,16 +372,52 @@
                 console.error('❌ Error generating QR code:', error);
                 
                 // Mostrar QR simple con texto si falla
-                if (qrCanvas) {
-                    const ctx = qrCanvas.getContext('2d');
-                    drawFallbackQR(ctx, 'Usuario QR');
+                const ctx = qrCanvas.getContext('2d');
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, 200, 200);
+                ctx.fillStyle = '#FF8C42';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('QR Personal', 100, 90);
+                ctx.fillText('Usuario', 100, 110);
+                ctx.fillText('Único', 100, 130);
+                
+                qrCodeText.textContent = 'QR-USER';
+            } finally {
+                qrLoading.style.display = 'none';
+            }
+        }
+
+        async function loadUserStatistics() {
+            try {
+                console.log('📈 Cargando estadísticas del usuario...');
+                
+                let stats;
+                
+                // Si es usuario simulado, obtener de Firestore
+                if (window.simulatedUser) {
+                    const userDoc = await window.db.collection('users').doc('XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2').get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        stats = {
+                            totalStars: userData.totalPoints || 0,
+                            visitedBusinesses: userData.joinedBusinesses ? userData.joinedBusinesses.length : 0,
+                            thisMonthStars: 0 // Calcular del mes actual
+                        };
+                    }
+                } else {
+                    // Para usuarios reales
+                    stats = await getUserStatistics(currentUser.uid);
                 }
                 
-                if (qrCodeText) {
-                    qrCodeText.textContent = 'QR-USER';
+                if (stats) {
+                    document.getElementById('total-stars').textContent = stats.totalStars || '0';
+                    document.getElementById('visited-businesses').textContent = stats.visitedBusinesses || '0';
+                    document.getElementById('this-month-stars').textContent = stats.thisMonthStars || '0';
                 }
-            } finally {
-                if (qrLoading) qrLoading.style.display = 'none';
+                
+            } catch (error) {
+                console.error('❌ Error loading statistics:', error);
             }
         }
 
@@ -560,20 +426,18 @@
             try {
                 console.log('🔐 Generando/obteniendo QR personal FIJO para usuario:', userId);
                 
-                const realUserId = window.simulatedUser ? SIMULATED_USER_ID : userId;
+                const realUserId = window.simulatedUser ? 'XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2' : userId;
                 
                 // Intentar obtener desde Firebase primero
                 try {
-                    if (window.db) {
-                        const userDoc = await window.db.collection('users').doc(realUserId).get();
-                        if (userDoc.exists) {
-                            const userData = userDoc.data();
-                            
-                            // Si ya tiene QR guardado en Firebase, usarlo
-                            if (userData.personalQR && userData.personalQR.code) {
-                                console.log('✅ QR encontrado en Firebase:', userData.personalQR);
-                                return userData.personalQR;
-                            }
+                    const userDoc = await window.db.collection('users').doc(realUserId).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        
+                        // Si ya tiene QR guardado en Firebase, usarlo
+                        if (userData.personalQR && userData.personalQR.code) {
+                            console.log('✅ QR encontrado en Firebase:', userData.personalQR);
+                            return userData.personalQR;
                         }
                     }
                 } catch (error) {
@@ -588,13 +452,11 @@
                     
                     // Intentar guardar en Firebase para futuras consultas
                     try {
-                        if (window.db) {
-                            await window.db.collection('users').doc(realUserId).update({
-                                personalQR: qrData,
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                            console.log('✅ QR guardado en Firebase');
-                        }
+                        await window.db.collection('users').doc(realUserId).update({
+                            personalQR: qrData,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log('✅ QR guardado en Firebase');
                     } catch (error) {
                         console.log('⚠️ No se pudo guardar en Firebase');
                     }
@@ -620,13 +482,11 @@
                 
                 // Intentar guardar en Firebase
                 try {
-                    if (window.db) {
-                        await window.db.collection('users').doc(realUserId).update({
-                            personalQR: qrData,
-                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        console.log('✅ Nuevo QR guardado en Firebase');
-                    }
+                    await window.db.collection('users').doc(realUserId).update({
+                        personalQR: qrData,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log('✅ Nuevo QR guardado en Firebase');
                 } catch (error) {
                     console.log('⚠️ QR guardado solo en localStorage');
                 }
@@ -657,7 +517,7 @@
             return fixedCode;
         }
 
-        // Función para dibujar QR en canvas
+        // Función para dibujar QR en canvas con jsQR
         async function drawQRCodeToCanvas(canvas, text) {
             console.log('📱 Generando QR REAL para:', text);
             
@@ -675,13 +535,13 @@
                     // Crear un canvas temporal para el QR
                     const tempCanvas = document.createElement('canvas');
                     
-                    // Usar QRCode.toCanvas
+                    // Usar QRCode.toCanvas (sintaxis correcta para qrcode@1.5.3)
                     try {
                         await QRCode.toCanvas(tempCanvas, text, {
                             width: 180,
                             margin: 1,
                             color: {
-                                dark: '#000000',
+                                dark: '#000000',  // Negro para mejor detección
                                 light: '#FFFFFF'
                             },
                             errorCorrectionLevel: 'M'
@@ -710,11 +570,109 @@
                 
             } catch (error) {
                 console.error('❌ Error generando QR, usando fallback:', error);
-                drawFallbackQR(ctx, text);
+                
+                // Si falla, intentar con una implementación más simple
+                try {
+                    await generateSimpleQR(ctx, text);
+                } catch (fallbackError) {
+                    console.error('❌ Error en fallback:', fallbackError);
+                    drawFallbackQR(ctx, text);
+                }
             }
         }
 
-        // Función fallback para QR
+        // Nueva función para generar QR simple si la librería falla
+        async function generateSimpleQR(ctx, text) {
+            console.log('🔄 Intentando generar QR con método alternativo...');
+            
+            // Usar una librería QR más simple desde CDN
+            return new Promise((resolve, reject) => {
+                // Cargar qrious si QRCode no funciona
+                if (typeof QRious === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js';
+                    
+                    script.onload = () => {
+                        console.log('✅ QRious cargado como alternativa');
+                        try {
+                            const qr = new QRious({
+                                value: text,
+                                size: 180,
+                                background: 'white',
+                                foreground: 'black'
+                            });
+                            
+                            const img = new Image();
+                            img.onload = () => {
+                                ctx.fillStyle = '#FFFFFF';
+                                ctx.fillRect(0, 0, 200, 200);
+                                ctx.drawImage(img, 10, 10, 180, 180);
+                                
+                                // Borde naranja
+                                ctx.strokeStyle = '#FF8C42';
+                                ctx.lineWidth = 3;
+                                ctx.strokeRect(5, 5, 190, 190);
+                                
+                                console.log('✅ QR generado con QRious');
+                                resolve();
+                            };
+                            img.src = qr.toDataURL();
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                    
+                    script.onerror = () => reject(new Error('No se pudo cargar QRious'));
+                    document.head.appendChild(script);
+                } else {
+                    // QRious ya está disponible
+                    try {
+                        const qr = new QRious({
+                            value: text,
+                            size: 180,
+                            background: 'white',
+                            foreground: 'black'
+                        });
+                        
+                        const img = new Image();
+                        img.onload = () => {
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.fillRect(0, 0, 200, 200);
+                            ctx.drawImage(img, 10, 10, 180, 180);
+                            
+                            // Borde naranja
+                            ctx.strokeStyle = '#FF8C42';
+                            ctx.lineWidth = 3;
+                            ctx.strokeRect(5, 5, 190, 190);
+                            
+                            console.log('✅ QR generado con QRious existente');
+                            resolve();
+                        };
+                        img.src = qr.toDataURL();
+                    } catch (error) {
+                        reject(error);
+                    }
+                }
+            });
+        }
+
+        // Agregar después de la función drawFallbackQR:
+        window.testQRGeneration = function() {
+            console.log('🧪 Probando generación de QR...');
+            console.log('QRCode disponible:', typeof QRCode !== 'undefined');
+            console.log('QRious disponible:', typeof QRious !== 'undefined');
+            
+            if (personalQRCode) {
+                console.log('Código actual:', personalQRCode);
+                console.log('Regenerando QR...');
+                refreshQR();
+            } else {
+                console.log('No hay código QR personal generado aún');
+                generatePersonalQR();
+            }
+        };
+
+        // Mantener la función fallback igual
         function drawFallbackQR(ctx, text) {
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, 200, 200);
@@ -723,7 +681,7 @@
             ctx.textAlign = 'center';
             ctx.fillText('QR Code', 100, 90);
             ctx.fillText(text.substring(0, 20), 100, 110);
-            ctx.fillText('Usuario Personal', 100, 130);
+            ctx.fillText('Usa código manual', 100, 130);
             
             // Borde naranja
             ctx.strokeStyle = '#FF8C42';
@@ -735,16 +693,12 @@
             try {
                 console.log('🔄 Regenerando QR visual (mismo código)...');
                 await generatePersonalQR();
-                showSuccess('QR actualizado');
+                showSuccess('QR actualizado (mismo código)');
             } catch (error) {
                 console.error('❌ Error actualizando QR:', error);
                 showError('Error actualizando QR: ' + error.message);
             }
         }
-
-        // ================================
-        // FUNCIONES DE EDICIÓN Y GUARDADO
-        // ================================
 
         function enableEdit(fieldId) {
             const field = document.getElementById(fieldId);
@@ -793,34 +747,6 @@
             }
         }
 
-        // CORREGIDO: Función para actualizar perfil con ID consistente
-        async function actualizarPerfil(userId, profileData) {
-            console.log('💾 Updating profile for:', userId, profileData);
-            
-            try {
-                const realUserId = window.simulatedUser ? SIMULATED_USER_ID : userId;
-                
-                // Actualizar en Firebase si está disponible
-                if (window.db) {
-                    await window.db.collection('users').doc(realUserId).update({
-                        ...profileData,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    console.log('✅ Perfil actualizado en Firebase');
-                    
-                    // Recargar perfil para mostrar cambios
-                    await loadUserProfile();
-                }
-            } catch (error) {
-                console.error('❌ Error actualizando perfil:', error);
-                throw error;
-            }
-        }
-
-        // ================================
-        // FUNCIONES DE IMAGEN
-        // ================================
-
         function changeProfileImage() {
             document.getElementById('image-modal').style.display = 'block';
         }
@@ -857,7 +783,7 @@
                 const imageUrl = await uploadProfileImage(currentUser.uid, file);
                 document.getElementById('profile-image').src = imageUrl;
                 
-                await actualizarPerfil(currentUser.uid, { avatar: imageUrl });
+                await actualizarPerfil(currentUser.uid, { photoURL: imageUrl });
                 
                 closeImageModal();
                 showSuccess('Imagen actualizada');
@@ -867,41 +793,6 @@
                 showError(error.message);
             }
         }
-
-        // CORREGIDO: Función para subir imagen con ID consistente
-        async function uploadProfileImage(userId, file) {
-            console.log('🖼️ Uploading image for:', userId);
-            
-            try {
-                const realUserId = window.simulatedUser ? SIMULATED_USER_ID : userId;
-                
-                // Si Firebase Storage está disponible, subir imagen
-                if (window.storage) {
-                    const fileName = `profile-images/${realUserId}/${Date.now()}_${file.name}`;
-                    const storageRef = window.storage.ref(fileName);
-                    
-                    const snapshot = await storageRef.put(file);
-                    const downloadURL = await snapshot.ref.getDownloadURL();
-                    
-                    console.log('✅ Imagen subida a Firebase Storage');
-                    return downloadURL;
-                } else {
-                    // Fallback: crear URL local temporal
-                    const reader = new FileReader();
-                    return new Promise((resolve) => {
-                        reader.onload = (e) => resolve(e.target.result);
-                        reader.readAsDataURL(file);
-                    });
-                }
-            } catch (error) {
-                console.error('❌ Error subiendo imagen:', error);
-                throw error;
-            }
-        }
-
-        // ================================
-        // FUNCIONES DE UTILIDAD
-        // ================================
 
         async function logout() {
             if (confirm('¿Estás seguro de cerrar sesión?')) {
@@ -967,22 +858,95 @@
             }, 3000);
         }
 
-        // NUEVA: Función de debugging para verificar estado
-        window.debugProfile = function() {
-            console.log('🔍 Estado actual del perfil:');
-            console.log('  - Usuario actual:', currentUser);
-            console.log('  - Usuario simulado:', window.simulatedUser);
-            console.log('  - Firebase Auth:', !!window.auth);
-            console.log('  - Firebase DB:', !!window.db);
-            console.log('  - Firebase Storage:', !!window.storage);
-            console.log('  - QRCode library:', typeof QRCode !== 'undefined');
-            
-            if (currentUser) {
-                console.log('  - UID actual:', currentUser.uid);
-                const realUserId = window.simulatedUser ? SIMULATED_USER_ID : currentUser.uid;
-                console.log('  - ID real usado:', realUserId);
+        function getCurrentUser() {
+            return window.simulatedUser || window.auth.currentUser;
+        }
+
+        // Funciones de Firebase REALES
+        async function getUserProfile(userId) {
+            try {
+                if (!window.db) return null;
+                const userDoc = await window.db.collection('users').doc(userId).get();
+                if (userDoc.exists) {
+                    return userDoc.data();
+                }
+                return null;
+            } catch (error) {
+                console.error('❌ Error obteniendo perfil:', error);
+                return null;
             }
-        };
+        }
+
+        async function getUserStatistics(userId) {
+            try {
+                if (!window.db) return { totalStars: 0, visitedBusinesses: 0, thisMonthStars: 0 };
+                
+                const userDoc = await window.db.collection('users').doc(userId).get();
+                let totalStars = 0;
+                let visitedBusinesses = 0;
+                
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    totalStars = userData.totalPoints || userData.totalEarned || 0;
+                    visitedBusinesses = userData.joinedBusinesses ? userData.joinedBusinesses.length : 0;
+                }
+                
+                return { totalStars, visitedBusinesses, thisMonthStars: 0 };
+            } catch (error) {
+                console.error('❌ Error obteniendo estadísticas:', error);
+                return { totalStars: 0, visitedBusinesses: 0, thisMonthStars: 0 };
+            }
+        }
+
+        async function actualizarPerfil(userId, profileData) {
+            console.log('Updating profile for:', userId, profileData);
+            
+            try {
+                const realUserId = window.simulatedUser ? 'XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2' : userId;
+                
+                // Actualizar en Firebase si está disponible
+                if (window.db) {
+                    await window.db.collection('users').doc(realUserId).update({
+                        ...profileData,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log('✅ Perfil actualizado en Firebase');
+                }
+            } catch (error) {
+                console.error('❌ Error actualizando perfil:', error);
+                throw error;
+            }
+        }
+
+        async function uploadProfileImage(userId, file) {
+            console.log('Uploading image for:', userId);
+            
+            try {
+                const realUserId = window.simulatedUser ? 'XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2' : userId;
+                
+                // Si Firebase Storage está disponible, subir imagen
+                if (window.storage) {
+                    const fileName = `profile-images/${realUserId}/${Date.now()}_${file.name}`;
+                    const storageRef = window.storage.ref(fileName);
+                    
+                    const snapshot = await storageRef.put(file);
+                    const downloadURL = await snapshot.ref.getDownloadURL();
+                    
+                    console.log('✅ Imagen subida a Firebase Storage');
+                    return downloadURL;
+                } else {
+                    // Fallback: crear URL local temporal
+                    const reader = new FileReader();
+                    return new Promise((resolve) => {
+                        reader.onload = (e) => resolve(e.target.result);
+                        reader.readAsDataURL(file);
+                    });
+                }
+            } catch (error) {
+                console.error('❌ Error subiendo imagen:', error);
+                throw error;
+            }
+        }
 
         // Cerrar modal al hacer clic fuera
         window.onclick = function(event) {
@@ -992,7 +956,7 @@
             }
         }
 
-        console.log('🎉 Perfil cargado completamente con QR funcionando');
+        console.log('🎉 Perfil cargado completamente');
     </script>
 </body>
 </html>
