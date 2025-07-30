@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/css/intlTelInput.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.5.0/css/flag-icon.min.css">
     <!-- Firebase v8 compatible con firebase.auth() y firebase.firestore() -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -162,6 +164,50 @@
 .country-flag.hidden {
     display: none !important;
 }
+
+
+/* Asegurar que solo se muestre un campo a la vez */
+.input-group {
+    position: relative;
+}
+
+#client-email {
+    display: none;
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: var(--text-white);
+    font-size: 1rem;
+}
+
+#client-email:focus {
+    border-color: var(--primary-orange);
+    outline: none;
+}
+
+/* Asegurar que el contenedor del teléfono ocupe todo el ancho */
+.iti {
+    width: 100% !important;
+    display: flex !important;
+}
+
+/* Mejorar las banderas - versión actualizada */
+.iti__flag {
+    width: 20px !important;
+    height: 15px !important;
+    background-image: url("https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/img/flags.png") !important;
+    background-repeat: no-repeat !important;
+    background-color: transparent !important;
+    background-position: 20px 0 !important;
+}
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .iti__flag {
+        background-image: url("https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/img/flags@2x.png") !important;
+    }
+}
 </style>
 
 <body>
@@ -308,43 +354,58 @@
             
             // Obtener el contenedor completo de intl-tel-input
             const phoneContainer = phoneField.closest('.iti');
+            const inputGroup = phoneField.closest('.input-group');
             
             if (isUsingEmail) {
-                // Ocultar todo el contenedor del teléfono (incluyendo bandera)
+                // Ocultar completamente el input de teléfono y su contenedor
                 if (phoneContainer) {
                     phoneContainer.style.display = 'none';
-                } else {
-                    phoneField.style.display = 'none';
                 }
+                phoneField.style.display = 'none';
+                
+                // Mostrar el campo de email
                 emailField.style.display = 'block';
                 toggleBtn.textContent = 'Usar Teléfono';
+                
+                // Limpiar valores
                 emailField.value = '';
+                phoneField.value = '';
                 
             } else {
-                // Mostrar todo el contenedor del teléfono
+                // Mostrar el contenedor del teléfono
                 if (phoneContainer) {
                     phoneContainer.style.display = 'flex';
-                } else {
-                    phoneField.style.display = 'block';
                 }
+                phoneField.style.display = 'block';
+                
+                // Ocultar el campo de email
                 emailField.style.display = 'none';
                 toggleBtn.textContent = 'Usar Email';
+                
+                // Restaurar valor por defecto del teléfono
                 phoneField.value = '+57 ';
-                phoneField.focus();
+                emailField.value = '';
+                
+                // Hacer foco en el campo de teléfono
+                setTimeout(() => {
+                    phoneField.focus();
+                }, 100);
             }
             
-            // Resto del código existente...
-            const existingMessages = document.querySelectorAll('.error-message, .success-message');
+            // Limpiar mensajes de error previos
+            const existingMessages = document.querySelectorAll('.error-message, .success-message, .temp-message');
             existingMessages.forEach(msg => {
                 if (msg.parentNode) {
                     msg.parentNode.removeChild(msg);
                 }
             });
             
+            // Resetear sección de verificación
             const verificationSection = document.getElementById('verification-section');
             verificationSection.style.display = 'none';
             document.getElementById('verification-code').value = '';
             
+            // Resetear botón de login
             const loginBtn = document.getElementById('login-btn');
             loginBtn.textContent = 'Continuar';
             loginBtn.disabled = false;
@@ -826,6 +887,9 @@
             initializePhoneInput();
             updateTexts();
             setupEventListeners();
+
+            document.getElementById('client-email').style.display = 'none';
+            document.getElementById('client-phone').style.display = 'block';
         });
 
         function formatPhoneNumber(phoneNumber) {
