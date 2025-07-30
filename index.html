@@ -100,16 +100,6 @@
     border-radius: 8px 0 0 8px !important;
 }
 
-.iti__flag {
-    width: 24px !important;
-    height: 18px !important;
-    background-size: contain !important;
-    background-repeat: no-repeat !important;
-    background-position: center !important;
-    border-radius: 2px !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
-}
-
 .iti__arrow {
     border-left: 4px solid transparent !important;
     border-right: 4px solid transparent !important;
@@ -150,16 +140,6 @@
     border-radius: 0 8px 8px 0 !important;
 }
 
-.iti {
-    width: 100% !important;
-    display: flex !important;
-}
-
-.iti__tel-input {
-    border-radius: 0 8px 8px 0 !important;
-    border-left: none !important;
-}
-
 /* Ocultar banderas cuando se usa email */
 .country-flag.hidden {
     display: none !important;
@@ -193,20 +173,45 @@
     display: flex !important;
 }
 
+.iti__tel-input {
+    flex: 1 !important;
+    background: var(--input-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-left: none !important;
+    border-radius: 0 8px 8px 0 !important;
+    color: var(--text-white) !important;
+    padding: 12px 16px !important;
+}
+
 /* Mejorar las banderas - versión actualizada */
+/* Mejorar las banderas - versión corregida */
 .iti__flag {
     width: 20px !important;
     height: 15px !important;
     background-image: url("https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/img/flags.png") !important;
     background-repeat: no-repeat !important;
     background-color: transparent !important;
-    background-position: 20px 0 !important;
+    background-size: 5652px 15px !important;
 }
 
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
     .iti__flag {
         background-image: url("https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.8/img/flags@2x.png") !important;
+        background-size: 5652px 30px !important;
     }
+}
+
+/* Banderas específicas para Colombia */
+.iti__flag.iti__co {
+    background-position: -462px 0px !important;
+}
+
+.iti__flag.iti__us {
+    background-position: -5082px 0px !important;
+}
+
+.iti__flag.iti__mx {
+    background-position: -3174px 0px !important;
 }
 </style>
 
@@ -358,10 +363,12 @@
             
             if (isUsingEmail) {
                 // Ocultar completamente el input de teléfono y su contenedor
+                const phoneContainer = phoneField.closest('.iti');
                 if (phoneContainer) {
                     phoneContainer.style.display = 'none';
+                } else {
+                    phoneField.style.display = 'none';
                 }
-                phoneField.style.display = 'none';
                 
                 // Mostrar el campo de email
                 emailField.style.display = 'block';
@@ -373,10 +380,14 @@
                 
             } else {
                 // Mostrar el contenedor del teléfono
+                const phoneContainer = phoneField.closest('.iti');
                 if (phoneContainer) {
                     phoneContainer.style.display = 'flex';
+                    // Asegurar que el contenedor interno también esté visible
+                    phoneContainer.style.visibility = 'visible';
+                } else {
+                    phoneField.style.display = 'block';
                 }
-                phoneField.style.display = 'block';
                 
                 // Ocultar el campo de email
                 emailField.style.display = 'none';
