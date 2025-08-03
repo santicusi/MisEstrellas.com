@@ -910,22 +910,32 @@
                 const userCredential = await window.auth.signInWithEmailAndPassword(email, password);
                 console.log('✅ Autenticación Firebase exitosa, UID:', userCredential.user.uid);
                 
+                // 🔥 AQUÍ AGREGAMOS MÁS DEBUG
+                console.log('📄 Obteniendo documento de Firestore...');
                 const userDoc = await window.db.collection('users').doc(userCredential.user.uid).get();
+                console.log('📄 Documento obtenido:', userDoc.exists);
                 
                 if (!userDoc.exists) {
-                    console.log('❌ El documento no existe en Firestore');
+                    console.log('❌ El documento no existe en Firestore para UID:', userCredential.user.uid);
                     await window.auth.signOut();
                     throw new Error('Usuario no encontrado en la base de datos');
                 }
 
+                console.log('📊 Datos del documento:', userDoc.data());
                 const userData = userDoc.data();
+                console.log('👤 userData completo:', JSON.stringify(userData, null, 2));
+                
                 const userType = userData.userType;
+                console.log('🏷️ userType raw:', userType, 'tipo:', typeof userType);
+                
                 const cleanUserType = userType.toString().replace(/['"]/g, '').trim();
+                console.log('🧹 userType limpio:', cleanUserType);
                 
                 if (!cleanUserType || cleanUserType !== 'admin') {
-                    console.log('🚫 No es admin, valor limpio:', cleanUserType);
+                    console.log('🚫 No es admin. Valor esperado: "admin", valor encontrado:', cleanUserType);
+                    console.log('🚫 Comparación stricta:', cleanUserType === 'admin');
                     await window.auth.signOut();
-                    throw new Error('Acceso no autorizado. Solo administradores pueden acceder');
+                    throw new Error(`Acceso no autorizado. UserType encontrado: "${cleanUserType}"`);
                 }
 
                 console.log('🎉 Admin autenticado correctamente');
@@ -939,7 +949,9 @@
                 };
                 
             } catch (error) {
-                console.error('❌ Error en login local:', error);
+                console.error('❌ Error completo en login local:', error);
+                console.error('❌ Error stack:', error.stack);
+                console.error('❌ Error message:', error.message);
                 throw error;
             }
         }
