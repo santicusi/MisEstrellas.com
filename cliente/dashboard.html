@@ -319,10 +319,10 @@
                 try {
                     const user = JSON.parse(simulatedUser);
                     window.simulatedUser = user;
+                    currentUser = user; // 🔥 IMPORTANTE: Actualizar currentUser
+                    
                     addDebugLog('Simulated user loaded: ' + user.uid);
                     
-                    // Simular que está autenticado
-                    currentUser = user;
                     updateDebugStatus('debug-auth', 'SIMULATED', '#00ff00');
                     updateDebugStatus('debug-user', user.uid.substring(0, 8) + '...', '#00ff00');
                     
@@ -331,6 +331,8 @@
                     document.getElementById('user-name').textContent = `Bienvenido, ${userName}`;
                     
                     addDebugLog('Simulated user authenticated, checking Firestore...');
+                    
+                    // 🔥 CORREGIDO: Usar el ID del usuario simulado
                     checkUserInFirestore(user.uid);
                     return;
                 } catch (error) {
@@ -343,7 +345,7 @@
                 addDebugLog('Auth state changed: ' + (user ? user.uid : 'no user'));
                 
                 if (user) {
-                    currentUser = user;
+                    currentUser = user; // 🔥 IMPORTANTE: Actualizar currentUser
                     updateDebugStatus('debug-auth', 'AUTHENTICATED', '#00ff00');
                     updateDebugStatus('debug-user', user.uid.substring(0, 8) + '...', '#00ff00');
                     
@@ -352,6 +354,8 @@
                     document.getElementById('user-name').textContent = `Bienvenido, ${userName}`;
                     
                     addDebugLog('User authenticated, checking Firestore...');
+                    
+                    // 🔥 CORREGIDO: Usar el ID del usuario real
                     checkUserInFirestore(user.uid);
                     
                 } else {
@@ -378,7 +382,7 @@
                     const userData = userDoc.data();
                     addDebugLog('User data: ' + JSON.stringify(userData).substring(0, 100) + '...');
                     
-                    // Load user data
+                    // 🔥 SIMPLIFICADO: Solo llamar loadUserDataDebug (que ya usa el usuario correcto)
                     loadUserDataDebug();
                     
                 } else {
@@ -396,6 +400,61 @@
             }
         }
 
+        // NUEVA función para cargar datos de un usuario específico
+        async function loadUserDataDebugForUser(userId) {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+            
+            addDebugLog('Loading data specifically for user: ' + userId);
+
+            try {
+                const businesses = await cargarPuntosUsuario(userId);
+                
+                addDebugLog(`Found businesses for ${userId}: ${businesses.length}`);
+                
+                // Inicializar stats para este usuario específico
+                userStats = {
+                    totalStars: 0,
+                    totalEarned: 0,
+                    totalRedeemed: 0,
+                    totalVisits: 0,
+                    totalRedemptions: 0,
+                    totalBusinesses: businesses.length
+                };
+                
+                businesses.forEach(business => {
+                    userStats.totalStars += business.stars || 0;
+                    userStats.totalVisits += business.visits || 0;
+                    
+                    business.transactions.forEach(transaction => {
+                        if (transaction.type === 'earned') {
+                            userStats.totalEarned += transaction.points || 0;
+                        } else if (transaction.type === 'redeemed') {
+                            userStats.totalRedeemed += transaction.points || 0;
+                            userStats.totalRedemptions += 1;
+                        }
+                    });
+                });
+                
+                updateAllStats();
+                
+                if (businesses.length > 0) {
+                    displayBusinessCards(businesses);
+                } else {
+                    showEmptyState();
+                }
+                
+                addDebugLog('✅ Data loaded successfully for user: ' + userId);
+
+            } catch (error) {
+                addDebugLog('❌ Error loading data for user ' + userId + ': ' + error.message);
+                console.error('Error:', error);
+                showEmptyState();
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
         async function loadUserDataDebug() {
             const loading = document.getElementById('loading');
             loading.style.display = 'block';
@@ -403,9 +462,23 @@
             addDebugLog('Loading user data using cargarPuntosUsuario function...');
 
             try {
-                const userId = 'XMfYVWEwk5a8bDCuK6dtfJ1c0Zj2';
+                // 🔥 CORREGIDO: Usar el usuario actual, no uno hardcodeado
+                let userId;
                 
-                // 🎯 USAR LA FUNCIÓN EXISTENTE DE FIREBASE-CONFIG
+                // Verificar si hay usuario simulado
+                if (window.simulatedUser) {
+                    userId = window.simulatedUser.uid;
+                    addDebugLog('Using simulated user: ' + userId);
+                } else if (currentUser) {
+                    userId = currentUser.uid;
+                    addDebugLog('Using authenticated user: ' + userId);
+                } else {
+                    throw new Error('No user found');
+                }
+                
+                addDebugLog('Loading data for user: ' + userId);
+                
+                // 🎯 USAR LA FUNCIÓN EXISTENTE DE FIREBASE-CONFIG con el usuario correcto
                 const businesses = await cargarPuntosUsuario(userId);
                 
                 addDebugLog(`Found businesses: ${businesses.length}`);
@@ -436,7 +509,7 @@
                     });
                 });
                 
-                addDebugLog(`📊 Stats calculated from businesses:`);
+                addDebugLog(`📊 Stats calculated for user ${userId}:`);
                 addDebugLog(`- Current points: ${userStats.totalStars}`);
                 addDebugLog(`- Total earned: ${userStats.totalEarned}`);
                 addDebugLog(`- Total redeemed: ${userStats.totalRedeemed}`);
@@ -453,7 +526,7 @@
                     showEmptyState();
                 }
                 
-                addDebugLog('✅ User data loaded successfully using existing function');
+                addDebugLog('✅ User data loaded successfully for user: ' + userId);
 
             } catch (error) {
                 addDebugLog('❌ Error loading user data: ' + error.message);
